@@ -28,21 +28,6 @@
 	"sendHeader": [
 		{
 			"enable": false,
-			"name": "Mobile View",
-			"ruleType": "modifySendHeader",
-			"matchType": "regexp",
-			"pattern": "m\\.(youtube|reddit|twitch)\\.com",
-			"exclude": "",
-			"group": "Ungrouped",
-			"isFunction": true,
-			"action": {
-				"name": "user-agent",
-				"value": "Mozilla/5.0 (Android 12; Mobile; rv:109.0) Gecko/118.0 Firefox/118.0"
-			},
-			"code": "const MobileUA = 'Mozilla/5.0 (Android 12; Mobile; rv:109.0) Gecko/118.0 Firefox/118.0';\nval.filter(x => x.name.toLowerCase() === 'user-agent').map(x => x.value=MobileUA);"
-		},
-		{
-			"enable": false,
 			"name": "Reddit Mobile",
 			"ruleType": "modifySendHeader",
 			"matchType": "regexp",
