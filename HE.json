@@ -1,0 +1,107 @@
+{
+	"request": [
+		{
+			"enable": false,
+			"name": "force https",
+			"ruleType": "redirect",
+			"matchType": "regexp",
+			"pattern": "^http://(.*)",
+			"exclude": "",
+			"group": "Ungrouped",
+			"isFunction": false,
+			"action": "redirect",
+			"to": "https://$1"
+		},
+		{
+			"enable": true,
+			"name": "https://www.autohotkey.com/docs/v1",
+			"ruleType": "redirect",
+			"matchType": "regexp",
+			"pattern": "https://www.autohotkey.com/docs/v1(.*)",
+			"exclude": "",
+			"group": "Ungrouped",
+			"isFunction": false,
+			"action": "redirect",
+			"to": "https://www.autohotkey.com/docs/v2$1"
+		}
+	],
+	"sendHeader": [
+		{
+			"enable": false,
+			"name": "Mobile View",
+			"ruleType": "modifySendHeader",
+			"matchType": "regexp",
+			"pattern": "m\\.(youtube|reddit|twitch)\\.com",
+			"exclude": "",
+			"group": "Ungrouped",
+			"isFunction": true,
+			"action": {
+				"name": "user-agent",
+				"value": "Mozilla/5.0 (Android 12; Mobile; rv:109.0) Gecko/118.0 Firefox/118.0"
+			},
+			"code": "const MobileUA = 'Mozilla/5.0 (Android 12; Mobile; rv:109.0) Gecko/118.0 Firefox/118.0';\nval.filter(x => x.name.toLowerCase() === 'user-agent').map(x => x.value=MobileUA);"
+		},
+		{
+			"enable": false,
+			"name": "Reddit Mobile",
+			"ruleType": "modifySendHeader",
+			"matchType": "regexp",
+			"pattern": "reddit.com",
+			"exclude": "",
+			"group": "Ungrouped",
+			"isFunction": true,
+			"action": {
+				"name": "user-agent",
+				"value": "Mozilla/5.0 (Android 12; Mobile; rv:109.0) Gecko/118.0 Firefox/118.0"
+			},
+			"code": "const MobileUA = 'Mozilla/5.0 (Android 12; Mobile; rv:109.0) Gecko/118.0 Firefox/118.0';\nval.forEach(x => {\n    const lowerCaseName = x.name.toLowerCase();\n    switch (lowerCaseName) {\n        case 'user-agent':\n            x.value = MobileUA;\n            break;\n        case 'sec-ch-ua-mobile':\n            x.value = '?1';\n            break;\n        case 'sec-ch-ua-platform':\n            x.value = 'Android';\n            break;\n        default:\n            break;\n    }\n});"
+		},
+		{
+			"enable": false,
+			"name": "Youtube Mobile",
+			"ruleType": "modifySendHeader",
+			"matchType": "regexp",
+			"pattern": "https://((www|m)\\.)?youtube.com",
+			"exclude": "",
+			"group": "Ungrouped",
+			"isFunction": true,
+			"action": {
+				"name": "user-agent",
+				"value": "Mozilla/5.0 (Android 12; Mobile; rv:109.0) Gecko/118.0 Firefox/118.0"
+			},
+			"code": "const MobileUA = 'Mozilla/5.0 (Android 12; Mobile; rv:109.0) Gecko/118.0 Firefox/118.0';\nval.forEach(x => {\n    const lowerCaseName = x.name.toLowerCase();\n    switch (lowerCaseName) {\n        case 'user-agent':\n            x.value = MobileUA;\n            break;\n        case 'sec-ch-ua-mobile':\n            //x.value = '?1';\n            break;\n        case 'sec-ch-ua-platform':\n            //x.value = 'Android';\n            break;\n        default:\n            break;\n    }\n});"
+		},
+		{
+			"enable": true,
+			"name": "Youtube Mobile_clone",
+			"ruleType": "modifySendHeader",
+			"matchType": "regexp",
+			"pattern": "https://((www|m)\\.)?youtube.com",
+			"exclude": "",
+			"group": "Ungrouped",
+			"isFunction": false,
+			"action": {
+				"name": "user-agent",
+				"value": "Mozilla/5.0 (Android 12; Mobile; rv:109.0) Gecko/118.0 Firefox/118.0"
+			},
+			"code": "const MobileUA = 'Mozilla/5.0 (Android 12; Mobile; rv:109.0) Gecko/118.0 Firefox/118.0';\nval.forEach(x => {\n    const lowerCaseName = x.name.toLowerCase();\n    switch (lowerCaseName) {\n        case 'user-agent':\n            x.value = MobileUA;\n            break;\n        case 'sec-ch-ua-mobile':\n            //x.value = '?1';\n            break;\n        case 'sec-ch-ua-platform':\n            //x.value = 'Android';\n            break;\n        default:\n            break;\n    }\n});"
+		},
+		{
+			"enable": false,
+			"name": "Bing Mobile",
+			"ruleType": "modifySendHeader",
+			"matchType": "regexp",
+			"pattern": "bing.com",
+			"exclude": "",
+			"group": "Ungrouped",
+			"isFunction": true,
+			"action": {
+				"name": "user-agent",
+				"value": "Mozilla/5.0 (Android 12; Mobile; rv:109.0) Gecko/118.0 Firefox/118.0"
+			},
+			"code": "const MobileUA = 'Mozilla/5.0 (Android 12; Mobile; rv:109.0) Gecko/118.0 Firefox/118.0';\nval.forEach(x => {\n    const lowerCaseName = x.name.toLowerCase();\n    switch (lowerCaseName) {\n        case 'user-agent':\n            x.value = MobileUA;\n            break;\n        case 'sec-ch-ua-mobile':\n            x.value = '?1';\n            break;\n        case 'sec-ch-ua-platform':\n            x.value = 'Android';\n            break;\n        default:\n            break;\n    }\n});"
+		}
+	],
+	"receiveHeader": [],
+	"receiveBody": []
+}
