@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VOZ
 // @namespace    http://tampermonkey.net/
-// @version      20230910_131408
+// @version      20231006_074159
 // @description  try to take over the world!
 // @author       Me
 // @match        https://voz.vn/*
@@ -12,9 +12,9 @@
 (function() {
     'use strict';
   document.querySelectorAll('.bbWrapper .bbImage').forEach(img => {
-    img.style.maxHeight = '350px';
+    img.style.maxHeight = '300px';
     // console.log('talent: ' + img.height)
-    if (img.height >= 350) {
+    if (img.height >= 300) {
       img.style.width = 'auto';
       img.parentElement.style.border = '1px dotted';
       img.parentElement.style.padding = '2px';
