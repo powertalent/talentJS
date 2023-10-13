@@ -2,9 +2,9 @@
 // @name        Link Drag
 // @match       *://*/*
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      -
-// @description Link Drag
+// @description Link Drag 20231013_150501
 // @grant    GM_openInTab
 // @grant    GM_setClipboard
 // ==/UserScript==
@@ -83,13 +83,6 @@ function attachDrag(elem) {
       return d;
     }
     elem.addEventListener('dragstart', function(e) {
-      //console.log(e.target);
-      //console.log(e.target.shadowRoot);
-      /*if (e.target.nodeName != "A") {
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      //e.preventDefault();
-      }*/
       console.log('dragstart');
       var x1 = e.clientX;
       var y1 = e.clientY;
@@ -97,8 +90,6 @@ function attachDrag(elem) {
         var x2 = e.clientX;
         var y2 = e.clientY;
         var direction = getDirection(x1, y1, x2, y2);
-        //if ((x2 - x1) >= -50 && (x2 - x1) <= 50 && (y2 - y1) >= -50 && (y2 - y1) <= 50) {direction = 5;console.log(5);}
-        //if (e.target.nodeName == "A" && e.target.href.match(/youtube.com|youtu.be|streamable.com/)) {
         console.log('Direction: ' + direction);
         console.log(x1, y1, x2, y2, direction);
   
@@ -111,27 +102,12 @@ function attachDrag(elem) {
             EA(targetHref, 'vid');
             break;
           case DirectionEnum.LEFT:
-            // console.log('Streamlink: ' + targetHref);
-            // EA(targetHref, 'stream');
-            // document.querySelector('.p-breadcrumbs li:last-child a').click(); // VOZ up level
             break;
           case DirectionEnum.RIGHT:
             console.log('Open: ' + targetHref);
-            // copy(targetHref);
-            // Copy to clipboard
+             // Copy to clipboard
             GM_setClipboard(targetHref);
             let tabControl = GM_openInTab(targetHref, { active: false });
-            // location.href(targetHref)
-            // createTab({
-            //   url: targetHref,
-            //   active: false,
-            // });
-            // window.open(targetHref, '_blank');
-            // openInNewTab(targetHref);
-            // createTab({
-            //       url: targetHref,
-            //       active: false,
-            // });
             break;
           case DirectionEnum.DOWN:
             console.log('YTDL: ' + targetHref);
