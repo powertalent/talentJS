@@ -10,7 +10,7 @@
 // @name:fr      Pagetual
 // @name:it      Pagetual
 // @namespace    hoothin
-// @version      1.9.36.62
+// @version      1.9.36.65
 // @description  Perpetual pages - powerful auto-pager script. Auto loading next paginated web pages and inserting into current page. Support thousands of web sites without any rule.
 // @description:zh-CN  终极自动翻页 - 加载并拼接下一分页内容至当前页尾，智能适配任意网页
 // @description:zh-TW  終極自動翻頁 - 加載並拼接下一分頁內容至當前頁尾，智能適配任意網頁
@@ -52,6 +52,8 @@
 // @connect      hoothin.github.io
 // @run-at       document-idle
 // @connect      *
+// @contributionURL      https://ko-fi.com/hoothin
+// @contributionAmount   1
 // ==/UserScript==
 
 (function() {
@@ -119,7 +121,7 @@
                 firstUpdate: "Click here to initialize the rules",
                 update: "Update online rules",
                 click2update: "Click to update rules from url now",
-                loadNow: "Load next page manually",
+                loadNow: "Load next page automatically",
                 loadConfirm: "How much pages do you want to load? (0 means infinite)",
                 noNext: "No next link found, please create a new rule",
                 passSec: "Updated #t# seconds ago",
@@ -1061,6 +1063,9 @@
                 url: url,
                 method: 'GET',
                 timeout: 20000,
+                headers: {
+                    'accept': 'application/json,text/html'
+                },
                 onload: function(res) {
                     let json = null;
                     try {
@@ -2051,7 +2056,7 @@
         }
 
         hrefIsJs(href) {
-            return /^(javascript|#)/.test(href.replace("#p{", "").replace(location.href, ""))
+            return /^(javascript|#)/.test(href.trim().replace("#p{", "").replace(location.href, ""))
         }
 
         async querySelectorList(source, list) {
@@ -3220,7 +3225,7 @@
                 } else {
                     this.addedElePool.push(ele);
                 }
-                if (this.curSiteRule.insertPos == 2) {
+                if (this.curSiteRule.insertPos == 2 || this.curSiteRule.insertPos == "in") {
                     this.insert.appendChild(ele);
                 } else {
                     this.insert.parentNode.insertBefore(ele, this.insert);
@@ -6176,7 +6181,6 @@
 
     function isInViewPort(element) {
         if (!getBody(document).contains(element)) return false;
-        if (_unsafeWindow.getComputedStyle(element).display == "none") return false;
         const viewWidth = window.innerWidth || document.documentElement.clientWidth;
         const viewHeight = window.innerHeight || document.documentElement.clientHeight;
         const {
@@ -6190,7 +6194,8 @@
             top >= 0 &&
             left >= 0 &&
             right <= viewWidth + 1 &&
-            top <= viewHeight * (ruleParser.curSiteRule.rate || rulesData.rate || 1)
+            top <= viewHeight * (ruleParser.curSiteRule.rate || rulesData.rate || 1) &&
+            isVisible(element, _unsafeWindow)
         );
     }
 
@@ -6553,7 +6558,7 @@
     }
 
     const loadmoreReg = /^\s*((点击)?加载更多|(點擊)?加載更多|load\s*more|もっと読み込む)[.…]*\s*$/i;
-    const defaultLoadmoreSel = ".loadMore,.LoadMore,[class*='load-more'],button.show_more,.button-show-more,button[data-testid='more-results-button'],#btn_preview_remain";
+    const defaultLoadmoreSel = ".loadMore,.LoadMore,[class*='load-more'],button.show_more,.button-show-more,button[data-testid='more-results-button'],#btn_preview_remain,.view-more-btn";
     function getLoadMore(doc, loadmoreBtn) {
         if (!loadmoreBtn || !getBody(doc).contains(loadmoreBtn) || /less/.test(loadmoreBtn.innerText)) loadmoreBtn = null;
         if (!ruleParser.curSiteRule.singleUrl && !ruleParser.curSiteRule.loadMore) return null;
@@ -6580,6 +6585,7 @@
             }
         }
         if (loadmoreBtn && /less/.test(loadmoreBtn.innerText)) loadmoreBtn = null;
+        if (loadmoreBtn) debug(loadmoreBtn, 'Load more button');
         return loadmoreBtn;
     }
 
@@ -6618,7 +6624,7 @@
         }
         if (rulesData.opacity == 0 || ruleParser.curSiteRule.pageBar === 0) return null;
         url = url.replace(/#p{.*/, "");
-        let example = ruleParser.curSiteRule.insertPos == 2 ? insert.children[0] : (insert.parentNode.children[0] || insert);
+        let example = (ruleParser.curSiteRule.insertPos == 2 || ruleParser.curSiteRule.insertPos == "in") ? insert.children[0] : (insert.parentNode.children[0] || insert);
         while (example && (/^(SCRIPT|STYLE)$/i.test(example.nodeName) || example.className == "pagetual_pageBar")) {
             example = example.nextElementSibling;
         }
@@ -7747,7 +7753,6 @@
             sideController.setup();
             /*if (curPage == 1) {
                 window.postMessage({
-                    insert: geneSelector(ruleParser.curSiteRule.insertPos == 2 ? insert : insert.parentNode, true),
                     command: 'pagetual.insert'
                 }, '*');
             }*/
