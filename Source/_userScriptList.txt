@@ -6,7 +6,7 @@ https://greasyfork.org/scripts/438894-timerhooker-english-version/code/TimerHook
 https://greasyfork.org/scripts/443342-telegram-photo-protection-remover/code/Telegram Photo Protection Remover.user.js
 https://userscripts.adtidy.org/beta/adguard-extra/1.0/adguard-extra.user.js
 https://userscripts.adtidy.org/beta/popup-blocker/2.5/popupblocker.user.js
-
+https://greasyfork.org/scripts/449581-m3u8视频侦测下载器-自动嗅探/code/m3u8视频侦测下载器【自动嗅探】.user.js
 
 
 
