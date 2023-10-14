@@ -1,36 +1,75 @@
 -- protocol_hook.lua
 -- handlers.json: https://searchfox.org/mozilla-central/source/uriloader/exthandler/tests/unit/handlers.json
+-- named pipe: mpv.exe --input-ipc-server=\\.\pipe\mpvsocket
+-- Version : 20231014_144509
 
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
-local cwd = 'D:/mpv'
+-- MPV folder
+local cwd = ''
+--Beta feature, Windows only (for now), true = on, false = off. check -- named pipe
+local ipcMode = false
+
+--[[function getOS(cmd, raw)
+  local f = assert(io.popen(cmd, 'r'))
+  local s = assert(f:read('*a'))
+  f:close()
+  if raw then return s end
+  s = string.gsub(s, '^%s+', '')
+  s = string.gsub(s, '%s+$', '')
+  s = string.gsub(s, '[\n\r]+', ' ')
+  return s
+end
+
+function getOS()
+	-- ask LuaJIT first
+	if jit then
+		return jit.os
+	end
+
+	-- Unix, Linux variants
+	local fh,err = assert(io.popen("uname -o 2>/dev/null","r"))
+	if fh then
+		osname = fh:read()
+	end
+
+	return osname or "Windows"
+end
+
+print(getOS())]]--
+
+local function getOS()
+    local BinaryFormat = package.cpath
+    --print(BinaryFormat)
+    if BinaryFormat:match("dll$") then
+        return "Windows"
+    elseif BinaryFormat:match("so$") then
+        if BinaryFormat:match("homebrew") then
+            return "MacOS"
+        else
+            return "Linux"
+        end
+    elseif BinaryFormat:match("dylib$") then
+        return "MacOS"
+    end
+end
+
+--print(getOS())
 
 local function parseqs(url)
-    local query = url:match("%?(.+)")
+    -- return 0-based index to use with --playlist-start
+
+    local query = url:match("%?.+")
     if not query then return nil end
 
     local args = {}
-    for arg, param in query:gmatch("([^&]+)=([^&]+)") do
-        args[arg] = param
+    for arg, param in query:gmatch("(%a+)=([^&?]+)") do
+        if arg and param then
+            args[arg] = param
+        end
     end
-
     return args
 end
-
--- local function parseqs(url)
---     -- return 0-based index to use with --playlist-start
-
---     local query = url:match("%?.+")
---     if not query then return nil end
-
---     local args = {}
---     for arg, param in query:gmatch("(%a+)=([^&?]+)") do
---         if arg and param then
---             args[arg] = param
---         end
---     end
---     return args
--- end
 
 local function dump(o)
    if type(o) == 'table' then
@@ -113,44 +152,98 @@ local function exec(args)
     })
 end
 
-
-
 local function livestreamer(url, referer)
-    print('streamlink')
-    print(url)
+    print('Streamlink: '..url)
     local url2 = '"'..url..'"'
-    print(url2)
-    local cmd = 'run '..cwd..'/streamlink/bin/streamlink.exe '..url2..' 720p,best,worst --config='..cwd..'/streamlink/streamlink.conf'
-    print(cmd)
+    local cmd = ''
+    if getOS() == 'Windows' then
+        cmd = 'run '..cwd..'/streamlink/bin/streamlink.exe '..url2..' 720p,best,worst --config='..cwd..'/streamlink.conf'
+    else
+        cmd = 'run streamlink '..url2..' 720p,best,worst --config='..cwd..'/streamlink.conf'
+    end
+    --print(cmd)
     mp.command(cmd)
-    md.command('quit')
+    --mp.command('quit')
 end
 
 local function EA(url, referer, app)
-    print('app')
+    print('EA: '..url)
     local url2 = '"'..url..'"'
     local cmd = 'run '..app..' '..url2
     mp.command(cmd)
-    md.command('quit')
+    --mp.command('quit')
 end
 
-local function ytdl(url, referer)
-    print('ytdl')
-    print(url)
+local function ytdl(url, referer, mode)
+    print('YTDL: '..url)
     local url2 = '"'..url..'"'
-    print(url2)
-    local cmd = 'run cmd /c cd /d '..cwd..' && start yt-dlp '..url2
-    print(cmd)
+    local cmd = ''
+    if mode == 'audio' then
+        if getOS() == 'Windows' then
+            cmd = 'run cmd /c cd /d '..cwd..' && start yt-dlp -f ba --extract-audio '..url2
+        else
+            cmd = 'run yt-dlp -f ba --extract-audio '..url2
+        end
+    else
+        if getOS() == 'Windows' then
+            cmd = 'run cmd /c cd /d '..cwd..' && start yt-dlp '..url2
+        else
+            cmd = 'run yt-dlp '..url2
+        end
+    end
     mp.command(cmd)
-    md.command('quit')
+    --mp.command('quit')
+end
+
+local function piper(url)
+    local cmd = 'run cmd /c echo loadfile '..url..' append-play >\\\\.\\pipe\\mpvsocket'
+    --print(cmd)
+    mp.command(cmd)
+end
+
+local function exedir()
+    --local path1 = debug.getinfo(1).source
+    local path = mp.find_config_file('.')
+    if path:match('portable_config') then
+        return path:gsub('/portable_config/.*', '')
+    end
+
+
+end
+
+--print(dump(mp))
+--print(mp.find_config_file('.'))
+--print(utils.join_path(mp.find_config_file('.'),"streamlink"))
+--print(dump(debug.getinfo(1)))
+--print(debug.getinfo(1).source)
+--current_dir=io.popen"cd":read'*l'
+--print(current_dir)
+--print(package.path)
+--print(package.cpath)
+--print(os.getenv('PATH'))
+
+if cwd == '' then
+    cwd = exedir()
+    print(cwd)
+end
+
+if ipcMode == true then
+    local ipc = mp.get_property("input-ipc-server", "")
+    if ipc ~= "" then
+        ipcMode = false
+    end
 end
 
 mp.add_hook("on_load", 15, function()
     local referer = ''
-    local url = mp.get_property("stream-open-filename", "")
+    local ourl = mp.get_property("stream-open-filename", "")
+    local url = ourl
     local qs = {}
+    if getOS() == 'MacOS' then
+        url = 'mpv://'..url
+    end
     if (url:find("mpv://") ~= 1) then
-        msg.info("not a mpv url: " .. url)
+        print("not a mpv url: " .. url)
         return
     end
     local arr = split(url, '/')
@@ -158,7 +251,7 @@ mp.add_hook("on_load", 15, function()
         url = atobUrl(arr[3])
         if (url:find("data:") == 1) then
             url = atobUrl(split(url, ',')[2])
-            print(url)
+            --print(url)
         end
         if arr[4] then
             qs = parseqs(arr[4])
@@ -168,6 +261,10 @@ mp.add_hook("on_load", 15, function()
             subs = atobUrl(subs)
             mp.commandv('sub-add', subs)
         end
+        local function cleanup()
+            mp.commandv("playlist-remove", "0")
+        end
+        --mp.register_event("file-loaded", cleanup)
         if qs['subs'] then
             mp.register_event("file-loaded", subadd)
         end
@@ -176,11 +273,26 @@ mp.add_hook("on_load", 15, function()
             referer = atobUrl(referer)
         end
         if arr[2] == 'play' then
-            for link in string.gmatch(url, "[^%s]+") do
-                if referer ~= '' then
-                    mp.commandv('set', 'http-header-fields', 'Referer: "'..referer..'"')
+            if ipcMode == false then
+                for link in string.gmatch(url, "[^%s]+") do
+                    if referer ~= '' then
+                        mp.commandv('set', 'http-header-fields', 'Referer: "'..referer..'"')
+                    end
+                    mp.commandv('loadfile', link, 'append')
                 end
-                mp.commandv('loadfile', link, 'append')
+            else
+                piper(ourl)
+            end
+        elseif arr[2] == 'list' then
+            if ipcMode == false then
+                for link in string.gmatch(url, "[^%s]+") do
+                    if referer ~= '' then
+                        mp.commandv('set', 'http-header-fields', 'Referer: "'..referer..'"')
+                    end
+                    mp.commandv('loadlist', link, 'append')
+                end
+            else
+                piper(ourl)
             end
         elseif arr[2] == 'mg' then
             mp.set_property('osd-duration', '0')
@@ -188,16 +300,43 @@ mp.add_hook("on_load", 15, function()
                 link = 'gallery-dl://'..link
                 mp.commandv('loadfile', link, 'append')
             end
+        --[[elseif arr[2] == 'mpv69' then
+            --mp.commandv('set', 'http-proxy', 'http://127.0.0.1:9966/')
+            mp.set_property('http-proxy', 'http://127.0.0.1:9966/')
+            --mp.commandv('set', 'ytdl-raw-options-append', 'proxy=http://127.0.0.1:9966')
+            mp.set_property('ytdl-raw-options-append', 'proxy=http://127.0.0.1:9966')
+            for link in string.gmatch(url, "[^%s]+") do
+                if referer ~= '' then
+                    mp.commandv('set', 'http-header-fields', 'Referer: "'..referer..'"')
+                end
+                mp.commandv('loadfile', link, 'append')
+            end]]--
         elseif arr[2] == 'stream' then
-            livestreamer(url, referer)
+            for link in string.gmatch(url, "[^%s]+") do
+                livestreamer(link, referer)
+            end
+            --livestreamer(url, referer)
         elseif arr[2] == 'ytdl' then
-            ytdl(url, referer)
+            for link in string.gmatch(url, "[^%s]+") do
+                ytdl(link, referer, 'video')
+            end
+            --ytdl(url, referer, 'video')
+        elseif arr[2] == 'ytdla' then
+            for link in string.gmatch(url, "[^%s]+") do
+                ytdl(link, referer, 'audio')
+            end
+            --ytdl(url, referer, 'audio')
         elseif qs['app'] then
-            local app = qs['app']
-            app = atobUrl(app)
-            EA(url, referer, app)
+            for link in string.gmatch(url, "[^%s]+") do
+                local app = qs['app']
+                app = atobUrl(app)
+                EA(link, referer, app)
+            end
+            --local app = qs['app']
+            --app = atobUrl(app)
+            --EA(url, referer, app)
         end
+        
     end
 end)
-
 
