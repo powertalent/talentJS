@@ -9,9 +9,9 @@ https://greasyfork.org/scripts/440060-anti-anti-debugger/code/Anti%20Anti-debugg
 https://greasyfork.org/scripts/443342-telegram-photo-protection-remover/code/Telegram Photo Protection Remover.user.js
 https://greasyfork.org/scripts/449581-m3u8视频侦测下载器-自动嗅探/code/m3u8视频侦测下载器【自动嗅探】.user.js
 https://greasyfork.org/scripts/464982-recaptcha-v2-image-solver-nocaptchaai/code/reCAPTCHA%20v2%20image%20solver%20-%20noCaptchaAi.user.js
+https://greasyfork.org/scripts/475574-handlers-helper/code/Handlers%20Helper.user.js
 https://userscripts.adtidy.org/beta/adguard-extra/1.0/adguard-extra.user.js
 https://userscripts.adtidy.org/beta/popup-blocker/2.5/popupblocker.user.js
-https://greasyfork.org/scripts/475574-handlers-helper/code/Handlers%20Helper.user.js
 
 
 

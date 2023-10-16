@@ -2,12 +2,15 @@
 // @name        Handlers Helper
 // @include       *://*/*
 // @grant       none
-// @version     1.7
+// @version     1.8
 // @author      -
 // @description Helper for protocol_hook.lua
 // @namespace Violentmonkey Scripts
 // ==/UserScript==
 
+const livechat = false;
+const live_window_width = 400;
+const live_window_height = 640;
 var collected_urls = {};
 function GM_getParentByTagName(el, tagName) {
   tagName = tagName.toLowerCase();
@@ -68,6 +71,15 @@ function attachDrag(elem) {
       url2 = url2 + '?subs=' + GM_btoaUrl(subs);
     }
     //alert(url2);
+    if (app == 'stream' && livechat == true) {
+        var nurl = new URL(url);
+        if (nurl.href.indexOf('www.youtube.com/watch') != -1 || nurl.href.indexOf('m.youtube.com/watch') != -1) {
+        window.open("https://www.youtube.com/live_chat?is_popout=1&v=" + nurl.search.split("v=")[1], "", "fullscreen=no,toolbar=no,titlebar=no,menubar=no,location=no,width=" + live_window_width + ",height=" + live_window_height)
+
+        } else if (nurl.href.match('https://.*?.twitch.tv/.')) {
+        window.open("https://www.twitch.tv/popout" + nurl.pathname + "/chat?popout=", "", "fullscreen=no,toolbar=no,titlebar=no,menubar=no,location=no,width=" + live_window_width + ",height=" + live_window_height)
+        }
+    }
     location.href = url2;
   }
 
@@ -94,6 +106,9 @@ function attachDrag(elem) {
     |                 |
     |=================*/
     let d, t;
+    if (cx == 0 && cy == 0) {
+      return 5;
+    }
     if ((cx - x) >= -50 && (cx - x) <= 50 && (cy - y) >= -50 && (cy - y) <= 50) {
       return 5;
     }
