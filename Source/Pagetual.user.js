@@ -10,7 +10,7 @@
 // @name:fr      Pagetual
 // @name:it      Pagetual
 // @namespace    hoothin
-// @version      1.9.36.67
+// @version      1.9.36.69
 // @description  Perpetual pages - powerful auto-pager script. Auto loading next paginated web pages and inserting into current page. Support thousands of web sites without any rule.
 // @description:zh-CN  终极自动翻页 - 加载并拼接下一分页内容至当前页尾，智能适配任意网页
 // @description:zh-TW  終極自動翻頁 - 加載並拼接下一分頁內容至當前頁尾，智能適配任意網頁
@@ -1559,8 +1559,11 @@
             const maxNum = 2147483647;
             let moreChild = ele.children[0], minOffsetTop = maxNum;
             while (moreChild) {
-                if ((moreChild.offsetParent == ele || moreChild.offsetParent == ele.offsetParent) && moreChild.offsetTop < minOffsetTop) {
-                    minOffsetTop = moreChild.offsetTop;
+                if ((moreChild.offsetParent == ele || moreChild.offsetParent == ele.offsetParent)) {
+                    let curOffsetTop = moreChild.offsetParent == ele.offsetParent ? moreChild.offsetTop - ele.offsetTop : moreChild.offsetTop;
+                    if (curOffsetTop < minOffsetTop) {
+                        minOffsetTop = curOffsetTop;
+                    }
                 }
                 moreChild = moreChild.nextElementSibling;
             }
@@ -2240,12 +2243,16 @@
                     for (let i = 0; i < pageDivs.length; i++) {
                         let p = pageDivs[i];
                         if (/(next\s*(»|>>|>|›|→|❯)?|&gt;|▶|>|›|→|❯)/i.test(p.title || p.value || '')) {
-                            next = p;
+                            next = p.querySelector('a') || p;
                             break;
                         } else if (/^(next\s*(»|>>|>|›|→|❯)?|&gt;|▶|>|›|→|❯)$/i.test((p.innerText || '').trim())) {
-                            next = p;
+                            next = p.querySelector('a') || p;
                             break;
                         }
+                    }
+                    if (next && this.linkHasNoHref(next)) {
+                        if (!jsNext) jsNext = next;
+                        next = null;
                     }
                 }
             }
@@ -6336,7 +6343,7 @@
         document.addEventListener("click", e => {
             if (!checkClickedEle) {
                 checkClickedEle = e.target;
-                checkUrlTime = 100;
+                checkUrlTime = 300;
                 clearTimeout(checkUrlTimer);
                 checkUrlTimer = setTimeout(checkFunc, checkUrlTime);
             }
@@ -7504,7 +7511,7 @@
         let curScroll = getBody(document).scrollTop || document.documentElement.scrollTop;
         if (ruleParser.curSiteRule.singleUrl || forceState === 2) {
             let height = (getBody(frameDoc).scrollHeight || getBody(frameDoc).offsetHeight || 500);
-            if (!iframe.style.height || height - parseInt(iframe.style.height) > 50) {
+            if (!iframe.style.height || height - parseInt(iframe.style.height) > window.innerHeight) {
                 iframe.style.height = height + "px";
                 iframe.style.minHeight = iframe.style.height;
             }
@@ -7563,7 +7570,7 @@
             scrollingToResize = true;
             let resizeHandler = () => {
                 let touched = 0;
-                for (let i in resizePool) {
+                for (let i = 0; i < resizePool.length; i++) {
                     let resizeArr = resizePool[i];
                     let iframe = resizeArr[1]();
                     if (isTouchViewPort(iframe)) {
