@@ -30,3 +30,4 @@ https://greasyfork.org/scripts/440060-anti-anti-debugger
 https://greasyfork.org/scripts/449581-m3u8视频侦测下载器-自动嗅探
 https://greasyfork.org/scripts/464982-recaptcha-v2-image-solver-nocaptchaai
 https://greasyfork.org/scripts/475574-handlers-helper
+https://greasyfork.org/scripts/477616-open-youtube-pc-and-mobile-video-links-in-new-tab
