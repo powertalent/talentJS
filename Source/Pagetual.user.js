@@ -10,7 +10,7 @@
 // @name:fr      Pagetual
 // @name:it      Pagetual
 // @namespace    hoothin
-// @version      1.9.36.69
+// @version      1.9.36.74
 // @description  Perpetual pages - powerful auto-pager script. Auto loading next paginated web pages and inserting into current page. Support thousands of web sites without any rule.
 // @description:zh-CN  终极自动翻页 - 加载并拼接下一分页内容至当前页尾，智能适配任意网页
 // @description:zh-TW  終極自動翻頁 - 加載並拼接下一分頁內容至當前頁尾，智能適配任意網頁
@@ -121,7 +121,7 @@
                 firstUpdate: "Click here to initialize the rules",
                 update: "Update online rules",
                 click2update: "Click to update rules from url now",
-                loadNow: "Load next page automatically",
+                loadNow: "Load next automatically",
                 loadConfirm: "How much pages do you want to load? (0 means infinite)",
                 noNext: "No next link found, please create a new rule",
                 passSec: "Updated #t# seconds ago",
@@ -839,7 +839,13 @@
             cb(value);
         }
     };
-    var rulesData = {uninited: true}, ruleUrls, updateDate, clickedSth = false;
+    async function getData(key) {
+        return new Promise((resolve) => {
+            storage.getItem(key, value => {
+                resolve(value);
+            });
+        })
+    }
     const configPage = ["https://github.com/hoothin/UserScripts/tree/master/Pagetual",
                       "https://hoothin.github.io/UserScripts/Pagetual/"];
     const guidePage = /^https?:\/\/.*pagetual.*rule\.html/i;
@@ -849,6 +855,8 @@
     const nextTextReg1 = new RegExp("\u005e\u7ffb\u003f\u005b\u4e0b\u540e\u5f8c\u6b21\u005d\u005b\u4e00\u30fc\u0031\u005d\u003f\u005b\u9875\u9801\u5f20\u5f35\u005d\u007c\u005e\u006e\u0065\u0078\u0074\u005b\u0020\u005f\u002d\u005d\u003f\u0070\u0061\u0067\u0065\u005c\u0073\u002a\u005b\u203a\u003e\u2192\u00bb\u005d\u003f\u0024\u007c\u6b21\u306e\u30da\u30fc\u30b8\u007c\u005e\u6b21\u3078\u003f\u0024\u007cВперед", "i");
     const nextTextReg2 = new RegExp("\u005e\u0028\u005b\u4e0b\u540e\u5f8c\u6b21\u005d\u005b\u4e00\u30fc\u0031\u005d\u003f\u005b\u7ae0\u8bdd\u8a71\u8282\u7bc0\u4e2a\u500b\u5e45\u005d\u007c\u006e\u0065\u0078\u0074\u002e\u003f\u0063\u0068\u0061\u0070\u0074\u0065\u0072\u0029\u0028\u005b\u003a\uff1a\u005c\u005c\u002d\u005f\u2014\u0020\u005c\u005c\u002e\u3002\u003e\u0023\u00b7\u005c\u005c\u005b\u3010\u3001\uff08\u005c\u005c\u0028\u002f\u002c\uff0c\uff1b\u003b\u2192\u005d\u007c\u0024\u0029", "i");
     const lazyImgAttr = ["data-lazy-src", "data-lazy", "data-url", "data-orig-file", "zoomfile", "file", "original", "load-src", "imgsrc", "real_src", "src2", "origin-src", "data-lazyload", "data-lazyload-src", "data-lazy-load-src", "data-ks-lazyload", "data-ks-lazyload-custom", "data-src", "data-defer-src", "data-actualsrc", "data-cover", "data-original", "data-thumb", "data-imageurl", "data-placeholder", "lazysrc"];
+    var rulesData = {uninited: true}, ruleUrls, updateDate, clickedSth = false;
+    var isPause = false, manualPause = false, isHideBar = false, isLoading = false, curPage = 1, forceState = 0, autoScroll = 0, autoScrollInterval, bottomGap = 1000, autoLoadNum = -1, nextIndex = 0, stopScroll = false, clickMode = false, openInNewTab = 0;
 
     function getBody(doc) {
         return doc.body || doc.querySelector('body') || doc;
@@ -947,20 +955,35 @@
                 }
                 let parent = ele.parentElement;
                 if (parent) {
-                    selector = geneSelector(parent, addID) + ' > ' + selector;
                     if (!className && !hasId && parent.children.length > 1 && !/^HTML$/i.test(parent.nodeName)) {
-                        let i, nth = 0, all = 0;
-                        for (i = 0; i < parent.children.length; i++) {
-                            if (parent.children[i].nodeName == ele.nodeName) {
-                                all++;
-                                if (parent.children[i] == ele) {
-                                    nth = all;
+                        let prevE = ele.previousElementSibling;
+                        if (prevE && prevE.className) {
+                            let classList = prevE.classList, i = 0;
+                            for (let i = 0; i < classList.length; i++) {
+                                let c = classList[i];
+                                if (/^[\w\-_]+$/.test(c) && !/\d{4,}/.test(c)) {
+                                    className += '.' + c;
                                 }
-                                if (nth > 0 && all > 1) break;
+                            }
+                            if (className) {
+                                selector = prevE.nodeName.toLowerCase() + className + "+" + selector;
                             }
                         }
-                        selector += (all == 1 ? "" : `:nth-of-type(${nth})`);
+                        if (!className) {
+                            let i, nth = 0, all = 0;
+                            for (i = 0; i < parent.children.length; i++) {
+                                if (parent.children[i].nodeName == ele.nodeName) {
+                                    all++;
+                                    if (parent.children[i] == ele) {
+                                        nth = all;
+                                    }
+                                    if (nth > 0 && all > 1) break;
+                                }
+                            }
+                            selector += (all == 1 ? "" : `:nth-of-type(${nth})`);
+                        }
                     }
+                    selector = geneSelector(parent, addID) + ' > ' + selector;
                 }
             }
         }
@@ -1031,21 +1054,23 @@
             this.curSiteRule = {};
         }
 
-        initSavedRules(callback) {
+        async initSavedRules(callback) {
             var self = this;
-            storage.getItem("smartRules", smartRules => {
-                if (smartRules) self.smartRules = smartRules;
-                storage.getItem("hpRules", hpRules => {
-                    if (hpRules) self.hpRules = hpRules;
-                    storage.getItem("customRules", customRules => {
-                        if (customRules) self.customRules = customRules;
-                        storage.getItem("rules", rules => {
-                            if (rules) self.rules = rules;
-                            callback();
-                        });
-                    });
+            let smartRules = await getData("smartRules");
+            if (smartRules) self.smartRules = smartRules;
+            let hpRules = await getData("hpRules");
+            if (hpRules) self.hpRules = hpRules;
+            let customRules = await getData("customRules");
+            if (customRules) self.customRules = customRules;
+            if (_unsafeWindow.pagetualRules && _unsafeWindow.pagetualRules.length) {
+                _unsafeWindow.pagetualRules.forEach(rule => {
+                    rule.isScript = true;
                 });
-            });
+                self.customRules = _unsafeWindow.pagetualRules.concat(self.customRules);
+            }
+            let rules = await getData("rules");
+            if (rules) self.rules = rules;
+            callback();
         }
 
         saveCurSiteRule() {
@@ -1258,6 +1283,36 @@
             return true;
         }
 
+        runPageBar(pageBar) {
+            if (this.curSiteRule.pageBar && this.curSiteRule.pageBar !== 0) {
+                try {
+                    ((typeof this.curSiteRule.pageBar == 'function') ? this.curSiteRule.pageBar : Function("pageBar",'"use strict";' + this.curSiteRule.pageBar))(pageBar);
+                } catch(e) {
+                    debug(e);
+                }
+            }
+        }
+
+        runWait(cb) {
+            let checkEval = null, waitTime = 0;
+            if (this.curSiteRule.waitElement) {
+                checkEval = doc => {
+                    return this.waitElement(doc);
+                };
+            } else if(this.curSiteRule.wait) {
+                if (isNaN(this.curSiteRule.wait)) {
+                    try {
+                        checkEval = (typeof this.curSiteRule.wait == 'function') ? this.curSiteRule.wait : Function("doc", '"use strict";' + this.curSiteRule.wait);
+                    } catch(e) {
+                        debug(e);
+                    }
+                } else {
+                    waitTime = this.curSiteRule.wait;
+                }
+            }
+            cb(checkEval, waitTime);
+        }
+
         getRule(callback) {
             if(noRuleTest) {
                 this.curSiteRule = {};
@@ -1265,6 +1320,11 @@
                 this.curSiteRule.singleUrl = true;
                 callback();
                 return;
+            }
+            if (_unsafeWindow.pagetualRule) {
+                this.curSiteRule = _unsafeWindow.pagetualRule;
+                if (!this.curSiteRule.url) this.curSiteRule.url = ".";
+                this.curSiteRule.isScript = true;
             }
             var href = location.href.slice(0, 500);
             if (this.curSiteRule && this.curSiteRule.url && !this.curSiteRule.singleUrl) {
@@ -1277,6 +1337,7 @@
                 let urlReg = new RegExp(this.possibleRule.url, "i");
                 if (urlReg.test(href) && this.ruleMatch(this.possibleRule)) {
                     this.curSiteRule = this.possibleRule;
+                    debug(this.curSiteRule, 'Match rule');
                     return callback();
                 }
             }
@@ -1306,7 +1367,7 @@
                 let urlReg = new RegExp(r.url, "i");
                 if (urlReg.test(href)) {
                     if (!self.ruleMatchPre(r)) return false;
-                    if (r.url.length > 15) {
+                    if (r.url.length > 15 && r.from != 1) {
                         self.possibleRule = r;
                     }
                     if (r.waitElement) {
@@ -1327,7 +1388,7 @@
                         let waitTime = 500, checkEval, maxCheckTimes = 50;
                         if (isNaN(r.wait)) {
                             try {
-                                checkEval = (typeof _unsafeWindow.pagetualWait == 'undefined') ? Function("doc",'"use strict";' + r.wait) : _unsafeWindow.pagetualWait;
+                                checkEval = (typeof r.wait == 'function') ? r.wait : Function("doc",'"use strict";' + r.wait);
                             } catch(e) {
                                 debug(e, 'Error when checkeval');
                             }
@@ -1442,11 +1503,12 @@
 
         addToHpRules(instead) {
             try {
+                if (this.curSiteRule.isScript) return;
                 if (!this.hpRules) this.hpRules = [];
                 let url = this.curSiteRule && this.curSiteRule.url, self = this;
                 let href = location.href.slice(0, 500);
                 let matchedRules = this.hpRules.filter(rule => rule != self.curSiteRule && new RegExp(rule.url, "i").test(href) && self.ruleMatch(rule));
-                if (url) matchedRules.push(this.curSiteRule);
+                if (url) matchedRules.unshift(this.curSiteRule);
                 matchedRules.sort((a, b) => {
                     if ((a.include || a.exclude) && (!b.include && !b.exclude)) {
                         return -1;
@@ -1715,6 +1777,10 @@
                     let articleNum = 0;
                     for (i = 0; i < ele.children.length; i++) {
                         let curNode = ele.children[i];
+                        if (/^H\d$/i.test(curNode.nodeName)) {
+                            curMaxEle = null;
+                            break;
+                        }
                         if (/^(CANVAS|NAV)$/i.test(curNode.nodeName)) continue;
                         let curStyle = curWin.getComputedStyle(curNode);
                         if (!curNode.offsetParent && (curStyle.position != "fixed" || curStyle.opacity == 0)) {
@@ -1827,7 +1893,7 @@
                         let paStyle = curWin.getComputedStyle(ele.parentNode);
                         let paDisplay = paStyle.display;
                         let paOverflow = paStyle.overflow;
-                        pf = paDisplay.indexOf('flex') !== -1 || paDisplay.indexOf('grid') !== -1 || paOverflow == "hidden";
+                        pf = (paDisplay.indexOf('flex') !== -1 && paStyle.flexDirection == "row") || paDisplay.indexOf('grid') !== -1 || paOverflow == "hidden";
                     }
                     let curStyle = curWin.getComputedStyle(ele);
                     if (ele.children.length > 1) {
@@ -1851,7 +1917,7 @@
                                     ele = ele.children;
                                 } else {
                                     let middleChild = ele.children[parseInt(ele.children.length / 2)];
-                                    if (curStyle.display === 'flex' || (rulesData.opacity != 0 && !pf)) {
+                                    if ((curStyle.display === 'flex' && curStyle.flexDirection == "row") || (rulesData.opacity != 0 && !pf)) {
                                         ele = [ele];
                                     } else if ((middleChild.style && middleChild.style.position === "absolute" && middleChild.style.left && middleChild.style.top) || /^UL$/i.test(ele.nodeName) || curHeight == 0) {
                                         ele = [ele];
@@ -2137,6 +2203,7 @@
                 "[class^=pag] a[rel=next]",
                 "[class^=Pag] [aria-label=next]",
                 "[aria-label='Next page']",
+                "[aria-label='next page']",
                 ".pagination-nav__item--next>a",
                 "a.pageright",
                 ".page-numbers.current+a",
@@ -2318,7 +2385,7 @@
                                     }
                                 }
                                 if (!next3) {
-                                    if (/^(next\s*(»|>>|>|›|→|❯)?|&gt;|▶|>|›|→|❯)$/i.test(innerText) && aTag.parentNode.hasAttribute && !aTag.parentNode.hasAttribute("jsaction")) {
+                                    if (/^(next\s*(»|>>|>|›|→|❯)|&gt;|▶|>|›|→|❯)$/i.test(innerText) && aTag.parentNode.hasAttribute && !aTag.parentNode.hasAttribute("jsaction")) {
                                         if (isJs) {
                                             if (!nextJs3) nextJs3 = aTag;
                                         } else {
@@ -2378,6 +2445,8 @@
                                 if (parent && parent.contains(otherPageEle) && !/^\d+$/.test(otherPageEle.innerText.trim())) {
                                     next4 = null;
                                 }
+                            } else {
+                                next4 = null;
                             }
                         }
                     }
@@ -2408,7 +2477,10 @@
         verifyNext(next, doc) {
             if (!next) return null;
             if (next.previousElementSibling && /^BR$/i.test(next.previousElementSibling.nodeName)) return null;
-            let eles = getAllElements(`//${next.nodeName}[text()='${next.innerText}']`, doc);
+            let eles = [];
+            if (next.innerText && next.innerText.indexOf("\n") == -1) {
+                eles = getAllElements(`//${next.nodeName}[text()='${next.innerText}']`, doc);
+            }
             if (eles.length >= 2 && eles[0].href != eles[1].href) {
                 next = null;
             } else if (doc == document) {
@@ -2546,7 +2618,7 @@
                 try {
                     let over = _url => {
                     };
-                    let targetUrl = await ((typeof _unsafeWindow.pagetualNextLinkByJs == 'undefined') ? new AsyncFunction("doc", '"use strict";' + this.curSiteRule.nextLinkByJs) : _unsafeWindow.pagetualNextLinkByJs)(doc);
+                    let targetUrl = await ((typeof this.curSiteRule.nextLinkByJs == 'function') ? this.curSiteRule.nextLinkByJs : new AsyncFunction("doc", '"use strict";' + this.curSiteRule.nextLinkByJs))(doc);
                     if (targetUrl) nextLink = {href: targetUrl};
                 } catch(e) {
                     debug(e);
@@ -2845,7 +2917,7 @@
                     }
                 } else {
                     try {
-                        let stopSign = ((typeof _unsafeWindow.stopSign == 'undefined') ? Function("doc", "nextLink", '"use strict";' + this.curSiteRule.stopSign) : _unsafeWindow.stopSign)(doc, nextLink);
+                        let stopSign = ((typeof this.curSiteRule.stopSign == 'function') ? this.curSiteRule.stopSign : Function("doc", "nextLink", '"use strict";' + this.curSiteRule.stopSign))(doc, nextLink);
                         if (stopSign) {
                             isPause = true;
                             this.nextLinkHref = false;
@@ -2959,7 +3031,7 @@
         pageInit(doc, eles) {
             let code = this.curSiteRule.pageInit;
             if (code) {
-                let initFunc = ((typeof _unsafeWindow.pagetualPageInit == 'undefined') ? Function("doc", "eles", '"use strict";' + code) : _unsafeWindow.pagetualPageInit);
+                let initFunc = ((typeof code == 'function') ? code : Function("doc", "eles", '"use strict";' + code));
                 let checkInit = (resolve) => {
                     try {
                         if (initFunc(doc, eles) === false) {
@@ -2986,7 +3058,7 @@
             let code = this.curSiteRule.pageAction;
             if (code) {
                 try {
-                    ((typeof _unsafeWindow.pagetualPageAction == 'undefined') ? Function("doc", "eles", '"use strict";' + code) : _unsafeWindow.pagetualPageAction)(doc, eles);
+                    ((typeof code == 'function') ? code : Function("doc", "eles", '"use strict";' + code))(doc, eles);
                 } catch(e) {
                     debug(e);
                 }
@@ -3126,7 +3198,7 @@
             let base = document.querySelector("base");
             this.basePath = base ? base.href : location.href;
             this.getRule(async () => {
-                isPause = false;
+                isPause = manualPause;
                 if (self.curSiteRule.enable == 0) {
                     debug("Stop as rule disable");
                     isPause = true;
@@ -3183,7 +3255,7 @@
                 let code = self.curSiteRule.init;
                 if (code) {
                     try {
-                        ((typeof _unsafeWindow.pagetualInit == 'undefined') ? new AsyncFunction('doc', 'win', 'iframe', 'click', 'enter', 'input', '"use strict";' + code) : _unsafeWindow.pagetualInit)(null, null, null, sel => {clickAction(sel, document)}, sel => {enterAction(sel, document)}, (sel, v) =>{inputAction(sel, v, document)});
+                        ((typeof code == 'function') ? code : new AsyncFunction('doc', 'win', 'iframe', 'click', 'enter', 'input', '"use strict";' + code))(null, null, null, sel => {clickAction(sel, document)}, sel => {enterAction(sel, document)}, (sel, v) =>{inputAction(sel, v, document)});
                     } catch(e) {
                         debug(e);
                     }
@@ -3199,7 +3271,7 @@
                 if (self.curSiteRule.singleUrl && self.nextLinkHref == false && self.possibleRule) {
                     setTimeout(() => {
                         self.initPage(() => {});
-                    }, 1000);
+                    }, 3000);
                 }
                 self.refreshByClick();
 
@@ -3209,10 +3281,13 @@
                 }
                 callback();
                 let initRun = typeof self.curSiteRule.initRun == 'undefined' ? rulesData.initRun : self.curSiteRule.initRun;
-                if (initRun && initRun != false && self.nextLinkHref) {
-                    setTimeout(() => {
-                        nextPage();
-                    }, 500);
+                if (self.nextLinkHref) {
+                    sideController.setup();
+                    if (initRun && initRun != false) {
+                        setTimeout(() => {
+                            nextPage();
+                        }, 500);
+                    }
                 }
             });
         }
@@ -3274,7 +3349,7 @@
                     this.nextTitle = doc.title;
                 } else {
                     try {
-                        this.nextTitle = ((typeof _unsafeWindow.pagetualPageBarText == 'undefined') ? Function("doc",'"use strict";' + this.curSiteRule.pageBarText) : _unsafeWindow.pagetualPageBarText)(doc);
+                        this.nextTitle = ((typeof this.curSiteRule.pageBarText == 'function') ? this.curSiteRule.pageBarText : Function("doc",'"use strict";' + this.curSiteRule.pageBarText))(doc);
                     } catch(e) {
                         debug(e);
                     }
@@ -3478,6 +3553,7 @@
                 </div>
                 <div id="pagetual-sideController-bottom" class="pagetual-sideController-btn">⊻</div>
             `);
+            frame.classList.add("stop");
             let top = frame.querySelector("#pagetual-sideController-top");
             let pre = frame.querySelector("#pagetual-sideController-pre");
             let move = frame.querySelector("#pagetual-sideController-move");
@@ -3548,6 +3624,7 @@
             }, true);
 
             let initX, initY, moving = false;
+            let removeTimer;
             move.addEventListener("click", e => {
                 if (!moving) {
                     changeStop(!isPause);
@@ -3569,7 +3646,6 @@
                 e.preventDefault();
                 picker.start();
             };
-            let removeTimer;
 
             let mouseMoveHandler = e => {
                 if (moving) {
@@ -3818,6 +3894,7 @@
               color: #161616;
               z-index: 2147483646;
               font-size: 16px;
+              overflow: hidden;
               box-shadow: rgb(0 0 0) 0px 0px 10px;
              }
              #pagetual-picker * {
@@ -3978,7 +4055,7 @@
               float: initial;
               margin-top: 10px;
              }
-             #pagetual-picker #showDetail.showDetail {
+             #pagetual-picker.showDetail #showDetail {
               float: right;
              }
              #pagetual-picker #showDetail>svg {
@@ -3986,13 +4063,17 @@
               -webkit-transition:transform 0.3s ease;
               transition:transform 0.3 ease;
              }
-             #pagetual-picker #showDetail.showDetail>svg {
+             #pagetual-picker.showDetail #showDetail>svg {
               transform: rotate(180deg);
              }
              #pagetual-picker .tempRule {
+              display: none;
               margin-top: 10px;
               height: 300px;
               min-height: 150px;
+             }
+             #pagetual-picker.showDetail .tempRule {
+              display: inline-block;
              }
              #pagetual-picker #saveDetail {
               display: none;
@@ -4000,7 +4081,7 @@
               bottom: 10px;
               right: 8px;
              }
-             #pagetual-picker .showDetail~#saveDetail {
+             #pagetual-picker.showDetail #saveDetail {
               display: inline-block;
              }
              #pagetual-picker #saveDetail svg {
@@ -4014,7 +4095,7 @@
               bottom: 45px;
               right: 12px;
              }
-             #pagetual-picker .showDetail~.addProp {
+             #pagetual-picker.showDetail .addProp {
               display: flex;
              }
              #pagetual-picker .addProp>button {
@@ -4071,7 +4152,7 @@
                 <button id="loadNow" class="command" title="${i18n("loadNow")}" type="button">${i18n("loadNow")}</button>
                 <button id="autoScroll" class="command" title="${i18n("toggleAutoScroll")}" type="button"></button>
                 <div>
-                  <textarea style="display: none;" class="tempRule" spellcheck="false" placeholder="{Rule object}" title="Rule for current site"></textarea>
+                  <textarea class="tempRule" spellcheck="false" placeholder="{Rule object}" title="Rule for current site"></textarea>
                   <button id="showDetail" title="" type="button">
                     <svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M511.1 63.7c-247.4 0-448 200.6-448 448s200.6 448 448 448 448-200.6 448-448-200.6-448-448-448z m281.2 374.5L535.6 694.9c-12.5 12.5-32.8 12.5-45.3 0l-255.8-256c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l210.7 210.7c12.5 12.5 32.8 12.5 45.3 0l211.4-211.4c12.5-12.5 32.8-12.5 45.3 0 12.3 12.5 12.3 32.8-0.2 45.3z" fill="orangered"></path></svg>
                   </button>
@@ -4175,13 +4256,7 @@
                 self.tempRule.value = JSON.stringify(editTemp, null, 4);
             }, true);
             showDetailBtn.addEventListener("click", e => {
-                if (tempRule.style.display == "none") {
-                    tempRule.style.display = "";
-                    showDetailBtn.classList.add("showDetail");
-                } else {
-                    tempRule.style.display = "none";
-                    showDetailBtn.classList.remove("showDetail");
-                }
+                frame.classList.toggle("showDetail");
             }, true);
             saveDetailBtn.addEventListener("click", e => {
                 let editTemp = self.getTempRule(true);
@@ -4370,7 +4445,7 @@
                 delete this.editTemp.type;
                 delete this.editTemp.updatedAt;
             }
-            if (this.selectorInput.value && this.tempRule.style.display == "none") {
+            if (this.selectorInput.value && !this.frame.classList.contains("showDetail")) {
                 this.editTemp.pageElement = this.selectorInput.value;
             }
             return this.editTemp;
@@ -4422,7 +4497,7 @@
         }
 
         fillTempRuleTextarea() {
-            if (this.tempRule.style.display == "none") this.tempRule.value = JSON.stringify(this.getTempRule(), null, 4);
+            if (!this.frame.classList.contains("showDetail")) this.tempRule.value = JSON.stringify(this.getTempRule(), null, 4);
         }
 
         setSelectorDiv(selector) {
@@ -4508,6 +4583,9 @@
             getBody(document).addEventListener("mousemove", this.moveHandler, true);
             getBody(document).addEventListener("click", this.clickHandler, true);
             this.xpath.checked = isXPath(ruleParser.curSiteRule.pageElement);
+            this.tempRule.value = "";
+            this.editTemp = null;
+            this.frame.classList.remove("showDetail");
 
             this.loadNow.style.display = ruleParser.nextLinkHref ? "block" : "none";
             if (ruleParser.curSiteRule.nextLink && Array && Array.isArray && Array.isArray(ruleParser.curSiteRule.nextLink)) {
@@ -4887,6 +4965,7 @@
                 let url = document.createElement("a");
                 url.href = ruleUrl.url;
                 url.innerHTML = ruleUrl.url;
+                url.title = ruleUrl.url;
                 let up = document.createElement("span");
                 up.innerHTML = "↑ ";
                 up.title = i18n("sortTitle");
@@ -4909,11 +4988,12 @@
                 this.item.appendChild(del);
                 this.item.appendChild(url);
                 if (ruleParser.rules) {
-                    url.style.maxWidth = "80%";
+                    url.style.maxWidth = "calc(100% - 140px)";
                     url.style.overflow = "hidden";
                     url.style.display = "inline-block";
                     url.style.textOverflow = "ellipsis";
                     url.style.verticalAlign = "bottom";
+                    url.style.whiteSpace = "nowrap";
                     let rulesLength = ruleParser.rules.reduce((acc, cur) => acc + (cur.from == id ? 1 : 0), 0);
                     let idSpan = document.createElement("span");
                     idSpan.style.float = "right";
@@ -5682,7 +5762,7 @@
             _GM_registerMenuCommand(i18n("editCurrent"), () => {
                 picker.start();
             });
-            ruleParser.initSavedRules(() => {
+            ruleParser.initSavedRules(async () => {
                 let upBtnImg = rulesData.upBtnImg, downBtnImg = rulesData.downBtnImg, _sideControllerIcon = rulesData.sideControllerIcon;
                 if (upBtnImg && downBtnImg) {
                     downSvgCSS = downSvgCSS.replace("transform: rotate(180deg);", "");
@@ -5757,72 +5837,80 @@
                 }
                 openInNewTab = rulesData.openInNewTab ? 1 : 0;
                 enableDebug = rulesData.enableDebug;
-                storage.getItem("nextSwitch_" + location.host, i => {
-                    storage.getItem("forceState_" + location.host, v => {
-                        storage.getItem("autoScroll_" + location.host + location.pathname, _autoScroll => {
-                            storage.getItem("ruleLastUpdate", date => {
-                                autoScroll = _autoScroll || 0;
-                                if (typeof(i) !== "undefined") {
-                                    nextIndex = i;
-                                }
-                                if (typeof(v) == "undefined") {
-                                    v = (rulesData.enableWhiteList ? 1 : 0);
-                                }
-                                forceState = v;
-                                updateDate = date;
 
-                                let href = location.href.slice(0, 100);
-                                try {
-                                    if (_unsafeWindow.initedPagetual) {
-                                        if (ruleImportUrlReg.test(href)) {
-                                            showTips(i18n('duplicate'));
-                                        }
-                                        return;
-                                    }
-                                    _unsafeWindow.initedPagetual = true;
-                                } catch(e) {showTips(e)}
-                                listenUrl();
-                                _GM_registerMenuCommand(i18n("update"), () => {
-                                    showTips(i18n("beginUpdate"), "", 60000);
-                                    updateRules(() => {
-                                        showTips(i18n("updateSucc"));
-                                        location.reload();
-                                    },(rule, err) => {
-                                        showTips(`Failed to update ${rule.url} rules!`);
-                                        debug(err);
-                                    });
-                                });
-                                _GM_registerMenuCommand(i18n(forceState == 1 ? "enable" : "disableSite"), () => {
-                                    forceState = (forceState == 1 ? 0 : 1);
-                                    storage.setItem("forceState_" + location.host, forceState);
-                                    showTips(i18n(forceState == 1 ? "disableSiteTips" : "enableSiteTips"));
-                                    if (!ruleParser.curSiteRule.url) location.reload();
-                                });
-                                _GM_registerMenuCommand(i18n("toggleAutoScroll"), () => {
-                                    autoScroll = (autoScroll ? 0 : prompt(i18n("autoScrollRate"), 50)) || 0;
-                                    autoScroll = parseInt(autoScroll) || 0;
-                                    if (autoScroll < 0) autoScroll = 0;
-                                    else if (autoScroll > 1000) autoScroll = 1000;
-                                    storage.setItem("autoScroll_" + location.host + location.pathname, autoScroll);
-                                    startAutoScroll();
-                                });
-                                startAutoScroll();
+                let _nextSwitch = await getData("nextSwitch_" + location.host);
+                if (typeof(_nextSwitch) !== "undefined") {
+                    nextIndex = _nextSwitch;
+                }
 
+                let _forceState = await getData("forceState_" + location.host);
+                if (typeof(_forceState) == "undefined") {
+                    _forceState = (rulesData.enableWhiteList ? 1 : 0);
+                }
+                forceState = _forceState;
 
-                                if (initConfig(href)) return;
-                                pageReady = true;
-                                if (forceState == 1) return;
-                                let now = new Date().getTime();
-                                if (!date || now - date > 2 * 24 * 60 * 60 * 1000) {
-                                    updateRules(() => {
-                                    }, (rule, err) => {}, true);
-                                    storage.setItem("ruleLastUpdate", now);
-                                }
-                                callback();
-                            });
-                        });
+                autoScroll = await getData("autoScroll_" + location.host + location.pathname) || 0;
+
+                updateDate = await getData("ruleLastUpdate");
+
+                manualPause = !!await getData("pauseState_" + location.host);
+
+                let href = location.href.slice(0, 100);
+                try {
+                    if (_unsafeWindow.initedPagetual) {
+                        if (ruleImportUrlReg.test(href)) {
+                            showTips(i18n('duplicate'));
+                        }
+                        return;
+                    }
+                    _unsafeWindow.initedPagetual = true;
+                } catch(e) {showTips(e)}
+                listenUrl();
+                _GM_registerMenuCommand(i18n("update"), () => {
+                    showTips(i18n("beginUpdate"), "", 60000);
+                    updateRules(() => {
+                        showTips(i18n("updateSucc"));
+                        location.reload();
+                    },(rule, err) => {
+                        showTips(`Failed to update ${rule.url} rules!`);
+                        debug(err);
                     });
                 });
+                _GM_registerMenuCommand(i18n(forceState == 1 ? "enable" : "disableSite"), () => {
+                    if (forceState == 1) {
+                        forceState = 0;
+                        showTips(i18n("enableSiteTips"));
+                        changeStop(false);
+                    } else {
+                        forceState = 1;
+                        showTips(i18n("disableSiteTips"));
+                        changeStop(true);
+                        sideController.remove();
+                    }
+                    storage.setItem("forceState_" + location.host, forceState);
+                    if (!ruleParser.curSiteRule.url) location.reload();
+                });
+                _GM_registerMenuCommand(i18n("toggleAutoScroll"), () => {
+                    autoScroll = (autoScroll ? 0 : prompt(i18n("autoScrollRate"), 50)) || 0;
+                    autoScroll = parseInt(autoScroll) || 0;
+                    if (autoScroll < 0) autoScroll = 0;
+                    else if (autoScroll > 1000) autoScroll = 1000;
+                    storage.setItem("autoScroll_" + location.host + location.pathname, autoScroll);
+                    startAutoScroll();
+                });
+                startAutoScroll();
+
+
+                if (initConfig(href)) return;
+                pageReady = true;
+                if (forceState == 1) return;
+                let now = new Date().getTime();
+                if (!updateDate || now - updateDate > 2 * 24 * 60 * 60 * 1000) {
+                    updateRules(() => {
+                    }, (rule, err) => {}, true);
+                    storage.setItem("ruleLastUpdate", now);
+                }
+                callback();
             });
         });
     }
@@ -5870,8 +5958,8 @@
                 let preCode = ruleParser.curSiteRule.pageElementPre || ruleParser.curSiteRule.pagePre;
                 if (preCode) {
                     try {
-                        if (typeof _unsafeWindow.pagetualPagePre != 'undefined') {
-                            response = _unsafeWindow.pagetualPagePre(response);
+                        if (typeof preCode == 'function') {
+                            response = preCode(response);
                         } else if (preCode.length == 2) {
                             response = response.replace(new RegExp(preCode[0], "gi"), preCode[1]);
                         } else {
@@ -6040,6 +6128,34 @@
            margin-top: -${rulesData.opacity == 1 ? 31 : 30}px!important;
            pointer-events: all;
          }
+         .pagetual_pageBar span.refreshRing {
+           position: absolute;
+           top: 0;
+           opacity: 0;
+           height: 30px;
+           margin-left: calc(50% - 23px);
+           display: block!important;
+         }
+         .pagetual_pageBar a:hover>span.refreshRing {
+           opacity: 0.3;
+           -webkit-animation: pagetual_ring 2.0s infinite linear;
+           animation: pagetual_ring 2.0s infinite linear;
+         }
+         @-webkit-keyframes pagetual_ring {
+           0% { -webkit-transform: rotate(0deg) }
+           100% {
+             -webkit-transform: rotate(360deg);
+           }
+         }
+         @keyframes pagetual_ring {
+           0% {
+             transform: rotate(0deg);
+             -webkit-transform: rotate(0deg);
+           } 100% {
+             transform: rotate(360deg);
+             -webkit-transform: rotate(360deg);
+           }
+         }
          .pagetual_pageBar a:hover>span.nextScreen {
            margin-top: 30px!important;
            pointer-events: all;
@@ -6160,7 +6276,7 @@
     var loadingDiv = document.createElement("div");
     loadingDiv.style.cssText = "text-indent: initial;cy: initial;d: initial;dominant-baseline: initial;empty-cells: initial;fill: initial;fill-opacity: initial;fill-rule: initial;filter: initial;flex: initial;flex-flow: initial;float: initial;flood-color: initial;flood-opacity: initial;grid: initial;grid-area: initial;height: initial;hyphens: initial;image-orientation: initial;image-rendering: initial;inline-size: initial;inset-block: initial;inset-inline: initial;isolation: initial;letter-spacing: initial;lighting-color: initial;line-break: initial;list-style: initial;margin-block: initial;margin: 0px auto;margin-inline: initial;marker: initial;mask: initial;mask-type: initial;max-block-size: initial;max-height: initial;max-inline-size: initial;max-width: initial;min-block-size: initial;min-height: initial;min-inline-size: initial;min-width: initial;mix-blend-mode: initial;object-fit: initial;object-position: initial;offset: initial;opacity: initial;order: initial;origin-trial-test-property: initial;orphans: initial;outline: initial;outline-offset: initial;overflow-anchor: initial;overflow-clip-margin: initial;overflow-wrap: initial;overflow: initial;overscroll-behavior-block: initial;overscroll-behavior-inline: initial;overscroll-behavior: initial;padding-block: initial;padding: initial;padding-inline: initial;page: initial;page-orientation: initial;paint-order: initial;perspective: initial;perspective-origin: initial;pointer-events: initial;position: initial;quotes: initial;r: initial;resize: initial;ruby-position: initial;rx: initial;ry: initial;scroll-behavior: initial;scroll-margin-block: initial;scroll-margin: initial;scroll-margin-inline: initial;scroll-padding-block: initial;scroll-padding: initial;scroll-padding-inline: initial;scroll-snap-align: initial;scroll-snap-stop: initial;scroll-snap-type: initial;scrollbar-gutter: initial;shape-image-threshold: initial;shape-margin: initial;shape-outside: initial;shape-rendering: initial;size: initial;speak: initial;stop-color: initial;stop-opacity: initial;stroke: initial;stroke-dasharray: initial;stroke-dashoffset: initial;stroke-linecap: initial;stroke-linejoin: initial;stroke-miterlimit: initial;stroke-opacity: initial;stroke-width: initial;tab-size: initial;table-layout: initial;text-align: initial;text-align-last: initial;text-anchor: initial;text-combine-upright: initial;text-decoration: initial;text-decoration-skip-ink: initial;text-indent: initial;text-overflow: initial;text-shadow: initial;text-size-adjust: initial;text-transform: initial;text-underline-offset: initial;text-underline-position: initial;touch-action: initial;transform: initial;transform-box: initial;transform-origin: initial;transform-style: initial;transition: initial;user-select: initial;vector-effect: initial;vertical-align: initial;visibility: initial;border-spacing: initial;-webkit-border-image: initial;-webkit-box-align: initial;-webkit-box-decoration-break: initial;-webkit-box-direction: initial;-webkit-box-flex: initial;-webkit-box-ordinal-group: initial;-webkit-box-orient: initial;-webkit-box-pack: initial;-webkit-box-reflect: initial;-webkit-highlight: initial;-webkit-hyphenate-character: initial;-webkit-line-break: initial;-webkit-line-clamp: initial;-webkit-mask-box-image: initial;-webkit-mask: initial;-webkit-mask-composite: initial;-webkit-perspective-origin-x: initial;-webkit-perspective-origin-y: initial;-webkit-print-color-adjust: initial;-webkit-rtl-ordering: initial;-webkit-ruby-position: initial;-webkit-tap-highlight-color: initial;-webkit-text-combine: initial;-webkit-text-decorations-in-effect: initial;-webkit-text-emphasis: initial;-webkit-text-emphasis-position: initial;-webkit-text-fill-color: initial;-webkit-text-security: initial;-webkit-text-stroke: initial;-webkit-transform-origin-x: initial;-webkit-transform-origin-y: initial;-webkit-transform-origin-z: initial;-webkit-user-drag: initial;-webkit-user-modify: initial;white-space: initial;widows: initial;width: initial;will-change: initial;word-break: initial;word-spacing: initial;x: initial;y: initial;z-index: 2147483647;";
 
-    const loadingCSS = `text-indent: unset; display: block; position: initial; margin: auto auto 5px auto; shape-rendering: auto; vertical-align: middle; visibility: visible; width: initial; height: initial; text-align: center; color: #6e6e6e; flex: 0;`;
+    const loadingCSS = `font-size: initial; text-indent: unset; display: block; position: initial; margin: auto auto 5px auto; shape-rendering: auto; vertical-align: middle; visibility: visible; width: initial; height: initial; text-align: center; color: #6e6e6e; flex: 0;`;
     function setLoadingDiv(loadingText) {
         loadingDiv.innerHTML = createHTML(`<p class="pagetual_loading_text" style="${loadingCSS}display: inline-block;width: 100%;">${loadingText}</p>${rulesData.hideLoadingIcon ? "" : `<div class="pagetual_loading"><svg width="50" height="50" style="position:relative;cursor: pointer;width: 50px;height: 50px;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M296 440c-44.1 0-80 35.9-80 80s35.9 80 80 80 80-35.9 80-80-35.9-80-80-80z" fill="#6e6e6e"></path><path d="M960 512c0-247-201-448-448-448S64 265 64 512c0 1.8 0.1 3.5 0.1 5.3 0 0.9-0.1 1.8-0.1 2.7h0.2C68.5 763.3 267.7 960 512 960c236.2 0 430.1-183.7 446.7-415.7 0.1-0.8 0.1-1.6 0.2-2.3 0.4-4.6 0.5-9.3 0.7-13.9 0.1-2.7 0.4-5.3 0.4-8h-0.2c0-2.8 0.2-5.4 0.2-8.1z m-152 8c0 44.1-35.9 80-80 80s-80-35.9-80-80 35.9-80 80-80 80 35.9 80 80zM512 928C284.4 928 99 744.3 96.1 517.3 97.6 408.3 186.6 320 296 320c110.3 0 200 89.7 200 200 0 127.9 104.1 232 232 232 62.9 0 119.9-25.2 161.7-66-66 142.7-210.4 242-377.7 242z" fill="#6e6e6e"></path></svg></div>`}`);
     }
@@ -6177,19 +6293,22 @@
     var tipsWords = document.createElement("div");
     tipsWords.className = "pagetual_tipsWords";
 
-    var isPause = false, isHideBar = false, isLoading = false, curPage = 1, forceState = 0, autoScroll = 0, autoScrollInterval, bottomGap = 1000, autoLoadNum = -1, nextIndex = 0, stopScroll = false, clickMode = false;
-    var openInNewTab = 0;
-
+    var changeStopTimer;
     function changeStop(stop) {
         isPause = stop;
-        [].forEach.call(getBody(document).querySelectorAll(".pagetual_pageBar,#pagetual-sideController"), bar => {
-            if (isPause) {
-                bar.classList.add("stop");
-            } else {
-                bar.classList.remove("stop");
-            }
-        });
-        if (!isPause) ruleParser.showAddedElements();
+        clearTimeout(changeStopTimer);
+        changeStopTimer = setTimeout(() => {
+            [].forEach.call(getBody(document).querySelectorAll(".pagetual_pageBar,#pagetual-sideController"), bar => {
+                if (isPause) {
+                    bar.classList.add("stop");
+                } else {
+                    bar.classList.remove("stop");
+                }
+            });
+            if (!isPause) ruleParser.showAddedElements();
+            manualPause = isPause;
+            if (sideController.inited || !isPause) storage.setItem("pauseState_" + location.host, isPause ? true : "");
+        }, 350);
     }
 
     function changeHideBar(hide) {
@@ -6516,8 +6635,16 @@
                 }
                 var key = e.key.toLowerCase();
                 if (rulesData.dbClick2StopKey.toLowerCase() == key) {
-                    forceState = (forceState == 1 ? 0 : 1);
-                    showTips(i18n(forceState == 1 ? "disableSiteTips" : "enableSiteTips"));
+                    if (forceState == 1) {
+                        forceState = 0;
+                        showTips(i18n("enableSiteTips"));
+                        changeStop(false);
+                    } else {
+                        forceState = 1;
+                        showTips(i18n("disableSiteTips"));
+                        changeStop(true);
+                        sideController.remove();
+                    }
                     if (!ruleParser.curSiteRule.url) {
                         storage.setItem("forceState_" + location.host, forceState);
                         location.reload();
@@ -6730,14 +6857,6 @@
         if (openInNewTab == 1) pageText.target = "_blank";
         pageBar.appendChild(upSpan);
         pageBar.appendChild(pageText);
-        if (rulesData.pageBarMenu) {
-            pageText.addEventListener("click", e => {
-                e.stopPropagation();
-                if (e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
-                e.preventDefault();
-                picker.start();
-            });
-        }
         let touched = false;
         let touchBodyHandler = e => {
             touched = false;
@@ -6823,6 +6942,33 @@
         if (!rulesData.hideBarArrow) {
             pageText.insertBefore(preBtn, pageText.firstChild);
             pageText.insertBefore(nextBtn, pageText.firstChild);
+        }
+        if (curForceIframe) {
+            let bgRing = document.createElement("span");
+            bgRing.className = "refreshRing";
+            bgRing.style.display = "none";
+            bgRing.innerHTML = createHTML(upSvg);
+            pageText.title = "Refresh";
+            pageText.appendChild(bgRing);
+            pageText.addEventListener("click", e => {
+                e.stopPropagation();
+                if (e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
+                e.preventDefault();
+                let nextEle = pageBar && pageBar.nextElementSibling;
+                if (nextEle && nextEle.name == 'pagetual-iframe') {
+                    if (curForceIframe == nextEle) {
+                        nextEle.setAttribute("loaded", "refresh");
+                    }
+                    nextEle.src = nextEle.src;
+                }
+            });
+        } else if (rulesData.pageBarMenu) {
+            pageText.addEventListener("click", e => {
+                e.stopPropagation();
+                if (e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
+                e.preventDefault();
+                picker.start();
+            });
         }
         pageBar.appendChild(downSpan);
         if (forceState == 2) {
@@ -6930,13 +7076,7 @@
             pageBar.title = i18n(isPause ? "enable" : "disable");
         });
         ruleParser.insertElement(pageBar);
-        if (ruleParser.curSiteRule.pageBar && ruleParser.curSiteRule.pageBar !== 0) {
-            try {
-                ((typeof _unsafeWindow.pagetualPageBar == 'undefined') ? Function("pageBar",'"use strict";' + ruleParser.curSiteRule.pageBar) : _unsafeWindow.pagetualPageBar)(pageBar);
-            } catch(e) {
-                debug(e);
-            }
-        }
+        ruleParser.runPageBar(pageBar);
 
         return pageBar;
     }
@@ -7107,21 +7247,14 @@
         }
         iframe.style.cssText = 'margin:0!important;padding:0!important;visibility:hidden!important;flex:0;opacity:0!important;pointer-events:none!important;position:fixed;top:0px;left:0px;z-index:-2147483647;';
         let waitTime = 100, checkEval;
-        if (ruleParser.curSiteRule.waitElement) {
-            checkEval = doc => {
-                return ruleParser.waitElement(doc);
-            };
-        } else if (ruleParser.curSiteRule.wait) {
-            if (isNaN(ruleParser.curSiteRule.wait)) {
-                try {
-                    checkEval = (typeof _unsafeWindow.pagetualWait == 'undefined') ? Function("doc",'"use strict";' + ruleParser.curSiteRule.wait) : _unsafeWindow.pagetualWait;
-                } catch(e) {
-                    debug(e);
-                }
-            } else {
-                waitTime = ruleParser.curSiteRule.wait;
+        ruleParser.runWait((_checkEval, _waitTime) => {
+            if (_checkEval) {
+                checkEval = _checkEval;
             }
-        }
+            if (_waitTime) {
+                waitTime = _waitTime;
+            }
+        });
         if (checkRemoveIntv) clearInterval(checkRemoveIntv);
         checkRemoveIntv = setInterval(() => {
             if (!iframe || !getBody(document).contains(iframe)) {
@@ -7152,6 +7285,8 @@
                     } else if (eles && eles.length > 0) {
                         callback(doc, eles);
                     } else if (tryTimes++ < 100) {
+                        getBody(doc).scrollTop = 9999999;
+                        doc.documentElement.scrollTop = 9999999;
                         setTimeout(() => {
                             checkIframe();
                         }, waitTime);
@@ -7242,21 +7377,14 @@
             }
 
             let waitTime = 200, checkEval;
-            if (ruleParser.curSiteRule.waitElement) {
-                checkEval = doc => {
-                    return ruleParser.waitElement(doc);
-                };
-            } else if(ruleParser.curSiteRule.wait) {
-                if (isNaN(ruleParser.curSiteRule.wait)) {
-                    try {
-                        checkEval = (typeof _unsafeWindow.pagetualWait == 'undefined') ? Function("doc", '"use strict";' + ruleParser.curSiteRule.wait) : _unsafeWindow.pagetualWait;
-                    } catch(e) {
-                        debug(e);
-                    }
-                } else {
-                    waitTime = ruleParser.curSiteRule.wait;
+            ruleParser.runWait((_checkEval, _waitTime) => {
+                if (_checkEval) {
+                    checkEval = _checkEval;
                 }
-            }
+                if (_waitTime) {
+                    waitTime = _waitTime;
+                }
+            });
 
             if (!orgPage) {
                 if (!loadmoreEnd) {
@@ -7290,6 +7418,8 @@
                     if (!nextLink || !nextLink.offsetParent) nextLink = await ruleParser.getNextLink(iframeDoc, true);
                     if (nextLink) pageEle = ruleParser.getPageElement(iframeDoc, emuIframe.contentWindow, true);
                     if (!pageEle || pageEle.length == 0 || !nextLink) {
+                        getBody(iframeDoc).scrollTop = 9999999;
+                        iframeDoc.documentElement.scrollTop = 9999999;
                         if (waitTimes-- > 0) {
                             setTimeout(() => {
                                 checkPage();
@@ -7560,8 +7690,11 @@
                 }
             }
         }
-        getBody(document).scrollTop = curScroll;
-        document.documentElement.scrollTop = curScroll;
+        let newScroll = getBody(document).scrollTop || document.documentElement.scrollTop;
+        if (newScroll != curScroll) {
+            getBody(document).scrollTop = curScroll;
+            document.documentElement.scrollTop = curScroll;
+        }
     }
 
     function scrollToResize(e) {
@@ -7598,9 +7731,10 @@
         }
     }
 
+    var curForceIframe;
     function forceIframe(url, callback) {
         url = url.indexOf('=') == -1 ? url.replace(/#[^#]*/,"") : url;
-        let curIframe = document.createElement('iframe'), iframeDoc, pageElement = null, isloaded = false, inAction = true;
+        let curIframe = document.createElement('iframe'), iframeDoc, pageElement = null, inAction = true;
         let loadedHandler = () => {
             let getPageEle = () => {
                 if (ruleParser.curSiteRule.singleUrl) {
@@ -7613,8 +7747,11 @@
                 }
             };
             resizeIframe(curIframe, iframeDoc, getPageEle());
-            if (isloaded) return;
-            isloaded = true;
+            let loaded = curIframe.getAttribute("loaded");
+            if (loaded == "true") {
+                return;
+            }
+            curIframe.setAttribute("loaded", "true");
             let getIframe = () => {
                 return curIframe;
             };
@@ -7622,15 +7759,17 @@
                 return iframeDoc;
             };
             ruleParser.insertPage(iframeDoc, [], url, ele => {
-                callback(curIframe);
+                callback(curIframe, loaded == "refresh");
                 inAction = false;
             }, true);
-            resizePool.push([getPageEle, getIframe, getFrameDoc]);
+            if (!loaded) {
+                resizePool.push([getPageEle, getIframe, getFrameDoc]);
+            }
         };
         let checkIframeTimer = setInterval(() => {
             if (!curIframe.parentNode) {
                 clearInterval(checkIframeTimer);
-                return isloaded || callback(false);
+                return curIframe.getAttribute("loaded") == "true" || callback(false);
             }
         }, 500);
         let code = ruleParser.curSiteRule.iframeInit;
@@ -7723,11 +7862,12 @@
         };
         document.addEventListener("scroll", forceRefresh);
         curIframe.src = url;
+        curForceIframe = curIframe;
         let insert = ruleParser.getInsert();
         let body = getBody(document);
         let curScroll = body.scrollTop || document.documentElement.scrollTop;
         if (forceState == 2) {
-            body.appendChild(loadingDiv);
+            document.documentElement.appendChild(loadingDiv);
             body.appendChild(curIframe);
             let bodyStyle = getComputedStyle(body);
             if (bodyStyle.display == "flex" || bodyStyle.display == "inline-flex") {
@@ -7780,7 +7920,7 @@
         if (isPause || isLoading || forceState == 1) return;
         if (ruleParser.curSiteRule.delay) {
             try {
-                let checkDelay = ((typeof _unsafeWindow.pagetualDelay=='undefined') ? Function('"use strict";' + ruleParser.curSiteRule.delay) : _unsafeWindow.pagetualDelay)();
+                let checkDelay = ((typeof ruleParser.curSiteRule.delay == 'function') ? ruleParser.curSiteRule.delay : Function('"use strict";' + ruleParser.curSiteRule.delay))();
                 if (!checkDelay) return;
             } catch(e) {
                 debug(e);
@@ -7810,7 +7950,6 @@
         let insert = ruleParser.getInsert();
         if (insert) {
             if (curPage == 1) initView();
-            sideController.setup();
             /*if (curPage == 1) {
                 window.postMessage({
                     command: 'pagetual.insert'
@@ -7848,18 +7987,20 @@
                         }
                     };
                     try {
-                        ((typeof _unsafeWindow.pagetualPageElementByJs == 'undefined') ? Function("over", "pageNum",'"use strict";' + ruleParser.curSiteRule.pageElementByJs) : _unsafeWindow.pagetualPageElementByJs)(over, curPage);
+                        ((typeof ruleParser.curSiteRule.pageElementByJs == 'function') ? ruleParser.curSiteRule.pageElementByJs : Function("over", "pageNum",'"use strict";' + ruleParser.curSiteRule.pageElementByJs))(over, curPage);
                     } catch(e) {
                         debug(e);
                     }
                 } else if ((forceState == 2 || ruleParser.curSiteRule.action == 2) && !isJs) {
-                    forceIframe(nextLink, (iframe) => {
+                    forceIframe(nextLink, (iframe, refresh) => {
                         if (urlChanged || isPause) {
                             loadPageOver();
                             return;
                         }
-                        let pageBar = createPageBar(nextLink);
-                        if (pageBar && iframe && iframe.parentNode) iframe.parentNode.insertBefore(pageBar, iframe);
+                        if (!refresh) {
+                            let pageBar = createPageBar(nextLink);
+                            if (pageBar && iframe && iframe.parentNode) iframe.parentNode.insertBefore(pageBar, iframe);
+                        }
                         loadPageOver();
                         checkAutoLoadNum();
                     });

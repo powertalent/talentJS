@@ -1,16 +1,43 @@
 // ==UserScript==
 // @name        Handlers Helper
 // @include       *://*/*
-// @grant       none
-// @version     1.8
+// @grant       GM_getValue
+// @grant       GM_setValue
+// @grant       GM_registerMenuCommand
+// @version     2.2
 // @author      -
 // @description Helper for protocol_hook.lua
 // @namespace Violentmonkey Scripts
 // ==/UserScript==
 
-const livechat = false;
+//'iptv'
+
+const guide = 'Value: pipe ytdl stream mpv iptv';
 const live_window_width = 400;
 const live_window_height = 640;
+const total_direction = 4;
+
+var livechat = false;
+var hlsdomain = 'cdn.animevui.com';
+var UP = 'pipe';
+var DOWN = 'ytdl';
+var LEFT = 'stream';
+var RIGHT = 'mpv';
+var UP = GM_getValue('UP', UP);
+var DOWN = GM_getValue('DOWN', DOWN);
+var LEFT = GM_getValue('LEFT', LEFT);
+var RIGHT = GM_getValue('RIGHT', RIGHT);
+var hlsdomain = GM_getValue('hlsdomain', hlsdomain);
+var livechat = GM_getValue('livechat', livechat);
+GM_registerMenuCommand('↑', function() {var p = window.prompt(guide, UP);if(!p){return;};GM_setValue('UP', p);});
+GM_registerMenuCommand('↓', function() {var p = window.prompt(guide, DOWN);if(!p){return;};GM_setValue('DOWN', p);});
+GM_registerMenuCommand('←', function() {var p = window.prompt(guide, LEFT);if(!p){return;};GM_setValue('LEFT', p);});
+GM_registerMenuCommand('→', function() {var p = window.prompt(guide, RIGHT);if(!p){return;};GM_setValue('RIGHT', p);});
+GM_registerMenuCommand('HLS Force', function() {var p = window.prompt('Example: 1.com,2.com,3.com,4.com', hlsdomain);if(!p){return;};GM_setValue('hlsdomain', p);});
+GM_registerMenuCommand('Live Chat', function() {var p = window.prompt('true or false', livechat);if(!p){return;};if(p === 'true'){p=true}else{p=false};GM_setValue('livechat', p);});
+console.log(UP, DOWN, LEFT, RIGHT, hlsdomain, livechat);
+
+var hlsdomain = hlsdomain.split(',');
 var collected_urls = {};
 function GM_getParentByTagName(el, tagName) {
   tagName = tagName.toLowerCase();
@@ -36,8 +63,19 @@ function attachDrag(elem) {
     var url = '';
     var subs = '';
     var s = '';
+    var app = 'play';
+    var hls = false;
     console.log(attr, type)
-    if (attr.startsWith('http')) {
+    for (i in hlsdomain) {
+      if (attr.indexOf(hlsdomain[i]) != -1) {
+        if (type == 'stream') {
+          attr = attr.replace(/https?:/, 'hls:');
+        }
+        hls = true;
+      }
+
+    }
+    if (attr.startsWith('http') || attr.startsWith('hls')) {
       url = attr;
     } else if (attr.startsWith('mpv://')) {
       location.href = attr;
@@ -61,16 +99,26 @@ function attachDrag(elem) {
         var s = url;
     }
     collected_urls = {};
-    var app = 'play';
-    if (type != 'vid') {
-      var app = type.toLowerCase();
+    if (type == 'pipe') {
+      app = 'mpvy';
+    }
+    else if (type == 'iptv') {
+      app = 'list';
+    }
+    else if (type == 'mpv' || type == 'vid') {
+      app = 'play';
+    }
+    else {
+      app = type;
     }
     var bs = GM_btoaUrl(s);
     var url2 = 'mpv://' + app + '/' + bs + '/' + "?referer=" + GM_btoaUrl(location.href);
     if (subs != '') {
       url2 = url2 + '?subs=' + GM_btoaUrl(subs);
     }
-    //alert(url2);
+    if (hls == true) {
+        url2 = url2 + '?hls=1';
+    }
     if (app == 'stream' && livechat == true) {
         var nurl = new URL(url);
         if (nurl.href.indexOf('www.youtube.com/watch') != -1 || nurl.href.indexOf('m.youtube.com/watch') != -1) {
@@ -80,6 +128,7 @@ function attachDrag(elem) {
         window.open("https://www.twitch.tv/popout" + nurl.pathname + "/chat?popout=", "", "fullscreen=no,toolbar=no,titlebar=no,menubar=no,location=no,width=" + live_window_width + ",height=" + live_window_height)
         }
     }
+    console.log(url2);
     location.href = url2;
   }
 
@@ -113,7 +162,7 @@ function attachDrag(elem) {
       return 5;
     }
     // Change (4 == 4) to (8 == 4) to enable 8 directions
-    if (4 == 4) { //4 directions
+    if (total_direction == 4) { //4 directions
       if (Math.abs(cx - x) < Math.abs(cy - y)) {
         d = cy > y ? "8" : "2";
       } else {
@@ -152,23 +201,26 @@ function attachDrag(elem) {
 
       switch (+direction) {
         case DirectionEnum.RIGHT:
-          console.log('MPV: ' + targetHref);
-          EA(targetHref, 'vid');
+          console.log('RIGHT: ' + targetHref);
+          EA(targetHref, RIGHT);
           break;
         case DirectionEnum.LEFT:
-          console.log('Streamlink: ' + targetHref);
-          EA(targetHref, 'stream');
+          console.log('LEFT: ' + targetHref);
+          EA(targetHref, LEFT);
           break;
         case DirectionEnum.UP:
-          console.log('Open: ' + targetHref);
-          EA(targetHref, 'list');
+          console.log('UP: ' + targetHref);
+          EA(targetHref, UP);
           break;
         case DirectionEnum.DOWN:
-          console.log('YTDL: ' + targetHref);
-          EA(targetHref, 'ytdl');
+          console.log('DOWN: ' + targetHref);
+          EA(targetHref, DOWN);
           break;
 
         case DirectionEnum.UP_LEFT:
+          console.log('List: ' + targetHref);
+          EA(targetHref, 'list');
+          break;
         case DirectionEnum.UP_RIGHT:
         case DirectionEnum.DOWN_LEFT:
         case DirectionEnum.DOWN_RIGHT:
