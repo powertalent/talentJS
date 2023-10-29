@@ -10,7 +10,7 @@
 // @name:fr      Pagetual
 // @name:it      Pagetual
 // @namespace    hoothin
-// @version      1.9.36.74
+// @version      1.9.36.81
 // @description  Perpetual pages - powerful auto-pager script. Auto loading next paginated web pages and inserting into current page. Support thousands of web sites without any rule.
 // @description:zh-CN  终极自动翻页 - 加载并拼接下一分页内容至当前页尾，智能适配任意网页
 // @description:zh-TW  終極自動翻頁 - 加載並拼接下一分頁內容至當前頁尾，智能適配任意網頁
@@ -209,7 +209,7 @@
                 outOfDate: "The script is outdated, update to the latest version in time!",
                 hideBarTips: "Hide the pagination bar, toggle immersive experience",
                 setConfigPage: "Set current page as the default configuration page",
-                wedata2github: "Change the wedate address to the mirror address in the github repository",
+                wedata2github: "Change the wedata address to the mirror address in the github repository",
                 addOtherProp: "Add rule property",
                 addNextSelector: "Add selector content as nextLink",
                 addPageSelector: "Add selector content as pageElement",
@@ -856,7 +856,7 @@
     const nextTextReg2 = new RegExp("\u005e\u0028\u005b\u4e0b\u540e\u5f8c\u6b21\u005d\u005b\u4e00\u30fc\u0031\u005d\u003f\u005b\u7ae0\u8bdd\u8a71\u8282\u7bc0\u4e2a\u500b\u5e45\u005d\u007c\u006e\u0065\u0078\u0074\u002e\u003f\u0063\u0068\u0061\u0070\u0074\u0065\u0072\u0029\u0028\u005b\u003a\uff1a\u005c\u005c\u002d\u005f\u2014\u0020\u005c\u005c\u002e\u3002\u003e\u0023\u00b7\u005c\u005c\u005b\u3010\u3001\uff08\u005c\u005c\u0028\u002f\u002c\uff0c\uff1b\u003b\u2192\u005d\u007c\u0024\u0029", "i");
     const lazyImgAttr = ["data-lazy-src", "data-lazy", "data-url", "data-orig-file", "zoomfile", "file", "original", "load-src", "imgsrc", "real_src", "src2", "origin-src", "data-lazyload", "data-lazyload-src", "data-lazy-load-src", "data-ks-lazyload", "data-ks-lazyload-custom", "data-src", "data-defer-src", "data-actualsrc", "data-cover", "data-original", "data-thumb", "data-imageurl", "data-placeholder", "lazysrc"];
     var rulesData = {uninited: true}, ruleUrls, updateDate, clickedSth = false;
-    var isPause = false, manualPause = false, isHideBar = false, isLoading = false, curPage = 1, forceState = 0, autoScroll = 0, autoScrollInterval, bottomGap = 1000, autoLoadNum = -1, nextIndex = 0, stopScroll = false, clickMode = false, openInNewTab = 0;
+    var isPause = false, manualPause = false, isHideBar = false, isLoading = false, curPage = 1, forceState = 0, autoScroll = 0, autoScrollInterval, bottomGap = 1000, autoLoadNum = -1, nextIndex = 0, stopScroll = false, clickMode = false, openInNewTab = 0, charset = "UTF-8", charsetValid = true, urlWillChange = false;
 
     function getBody(doc) {
         return doc.body || doc.querySelector('body') || doc;
@@ -1777,7 +1777,7 @@
                     let articleNum = 0;
                     for (i = 0; i < ele.children.length; i++) {
                         let curNode = ele.children[i];
-                        if (/^H\d$/i.test(curNode.nodeName)) {
+                        if (/^H\d$/i.test(curNode.nodeName) && curNode.offsetParent) {
                             curMaxEle = null;
                             break;
                         }
@@ -1849,6 +1849,16 @@
                             preOffsetTop = curNode.offsetTop;
                         }
                     }
+                    if (curMaxEle && curHeight / bodyHeight <= 0.2) {
+                        let article = doc.querySelectorAll(mainSel);
+                        if (article && article.length == 1) {
+                            article = article[0];
+                            self.curSiteRule.pageElement = article.nodeName.toLowerCase() + (article.id ? "#" + article.id : "") + (article.className ? "." + article.className.replace(/ /g, ".") : "") + ">*";
+                            debug(self.curSiteRule.pageElement, 'Page element');
+                            return article.children;
+                        }
+                        curMaxEle = null;
+                    }
                     if (curMaxEle) {
                         let sameClassNum = 0, hasDifferent = false;
                         if (curMaxEle.className) {
@@ -1893,7 +1903,7 @@
                         let paStyle = curWin.getComputedStyle(ele.parentNode);
                         let paDisplay = paStyle.display;
                         let paOverflow = paStyle.overflow;
-                        pf = (paDisplay.indexOf('flex') !== -1 && paStyle.flexDirection == "row") || paDisplay.indexOf('grid') !== -1 || paOverflow == "hidden";
+                        pf = (paDisplay.indexOf('flex') !== -1 && paStyle.flexDirection == "row") || /^UL$/i.test(ele.parentNode.nodeName) || paDisplay.indexOf('grid') !== -1 || paOverflow == "hidden";
                     }
                     let curStyle = curWin.getComputedStyle(ele);
                     if (ele.children.length > 1) {
@@ -1944,6 +1954,7 @@
                         debug("Stop as too long between next & page element");
                         isPause = true;
                         pageElement = [];
+                        sideController.remove();
                     } else {
                         if (pageElement.length == 1 && /^IMG$/i.test(pageElement[0].nodeName)) {
                             self.curSiteRule.pageBar = 0;
@@ -2332,7 +2343,7 @@
                     }
                     let aTag = aTags[i];
                     if (aTag.style.display == "none") continue;
-                    let innerText = (aTag.innerText || aTag.value || aTag.title || '');
+                    let innerText = (aTag.title || aTag.innerText || aTag.value || '');
                     if (innerText) {
                         if (innerText == "§") continue;
                         innerText = innerText.trim();
@@ -2385,7 +2396,7 @@
                                     }
                                 }
                                 if (!next3) {
-                                    if (/^(next\s*(»|>>|>|›|→|❯)|&gt;|▶|>|›|→|❯)$/i.test(innerText) && aTag.parentNode.hasAttribute && !aTag.parentNode.hasAttribute("jsaction")) {
+                                    if (/^(next\s*(»|>>|>|›|→|❯)?|&gt;|▶|>|›|→|❯)$/i.test(innerText) && aTag.parentNode.hasAttribute && !aTag.parentNode.hasAttribute("jsaction")) {
                                         if (isJs) {
                                             if (!nextJs3) nextJs3 = aTag;
                                         } else {
@@ -2405,6 +2416,7 @@
                             }
                         }
                     }
+                    if (urlWillChange) continue;
                     if (!next4 && availableHref) {
                         if (aTag.href.indexOf(location.hostname) === -1) continue;
                         let _aHref = aTag.href.replace("?&", "?").replace("index.php?", "?").toLowerCase();
@@ -2445,8 +2457,6 @@
                                 if (parent && parent.contains(otherPageEle) && !/^\d+$/.test(otherPageEle.innerText.trim())) {
                                     next4 = null;
                                 }
-                            } else {
-                                next4 = null;
                             }
                         }
                     }
@@ -2944,11 +2954,11 @@
                 url: url,
                 method: postParams ? 'POST' : 'GET',
                 data: postParams,
-                overrideMimeType: 'text/html;charset=' + (document.characterSet || document.charset || document.inputEncoding),
+                overrideMimeType: 'text/html;charset=' + charset,
                 headers: {
                     'Referer': location.href,
                     'User-Agent': navigator.userAgent,
-                    "Content-Type": (postParams ? "application/x-www-form-urlencoded" : "text/html") + ";charset=" + (document.characterSet || document.charset || document.inputEncoding),
+                    "Content-Type": (postParams ? "application/x-www-form-urlencoded" : "text/html") + ";charset=" + charset,
                 },
                 timeout: 10000,
                 onload: function(res) {
@@ -3139,6 +3149,9 @@
                         img.src = realSrc;
                         img.removeAttribute("srcset");
                         img.removeAttribute(lazyAttr);
+                        if (img.classList && img.classList.contains && img.classList.contains("lazy")) {
+                            img.classList.remove("lazy");
+                        }
                         if (img.style.display == "none") {
                             img.style.display = "";
                         }
@@ -3198,7 +3211,9 @@
             let base = document.querySelector("base");
             this.basePath = base ? base.href : location.href;
             this.getRule(async () => {
-                isPause = manualPause;
+                if (self.curSiteRule.sideController === true || (self.curSiteRule.sideController !== false && rulesData.sideController)) {
+                    isPause = manualPause;
+                }
                 if (self.curSiteRule.enable == 0) {
                     debug("Stop as rule disable");
                     isPause = true;
@@ -3963,6 +3978,7 @@
               margin-right: 5px;
               resize: both;
               box-shadow: 0 1px 5px 1px #ddd;
+              overflow-wrap: anywhere;
              }
              #pagetual-picker textarea:focus {
               color: black;
@@ -3981,6 +3997,13 @@
               appearance: auto;
               display: inline-block;
               position: initial;
+             }
+             #pagetual-picker [type=checkbox]:after,
+             #pagetual-picker [type=radio]:after,
+             #pagetual-picker [type=checkbox]:before,
+             #pagetual-picker [type=radio]:before {
+              border: none;
+              background: none;
              }
              #pagetual-picker label {
               font-size: 18px;
@@ -4030,6 +4053,10 @@
               cursor: pointer;
              }
              #pagetual-picker .allpath>span.path:hover {
+              opacity: 0.6;
+             }
+             #pagetual-picker .allpath>span.path:hover,
+             #pagetual-picker .allpath>span.path.checked {
               color: orangered;
              }
              #pagetual-picker .moreConfig {
@@ -4424,7 +4451,7 @@
                         let pos = e && e.message && e.message.match(/position (\d+)/);
                         if (pos) {
                             pos = parseInt(pos[1]);
-                            this.tempRule.value = this.tempRule.value.slice(0, pos) + "➡️" + this.tempRule.value[pos] + "⬅️" + this.tempRule.value.slice(pos + 1);
+                            this.tempRule.value = this.tempRule.value.slice(0, pos) + "➡️" + this.tempRule.value.slice(pos);
                         }
                         showTips(i18n("errorJson"));
                         return null;
@@ -4539,6 +4566,11 @@
                 }
                 self.selectorInput.value = selector;
                 self.checkInputSelector();
+                if (self.checkedPath) {
+                    self.checkedPath.classList.remove("checked");
+                }
+                span.classList.add("checked");
+                self.checkedPath = span;
             }, true);
             this.allpath.appendChild(span);
         }
@@ -5385,7 +5417,7 @@
             }, (rule, err) => {
                 if (rule.id == 1) {
                     showTips(`Failed to update wedata rules! Try to switch to wedata mirror!`);
-                    wedata2githubInput.scrollIntoView();
+                    wedata2githubInput.scrollIntoView({ behavior: "smooth" });
                 } else {
                     showTips(`Failed to update ${rule.url} rules!`);
                 }
@@ -5480,7 +5512,7 @@
                 let pos = e && e.message && e.message.match(/position (\d+)/);
                 if (pos && !editor) {
                     pos = parseInt(pos[1]);
-                    customRulesInput.value = customRulesInput.value.slice(0, pos) + "➡️" + customRulesInput.value[pos] + "⬅️" + customRulesInput.value.slice(pos + 1);
+                    customRulesInput.value = customRulesInput.value.slice(0, pos) + "➡️" + customRulesInput.value.slice(pos);
                 }
                 showTips(i18n("errorJson"));
                 return;
@@ -5701,6 +5733,16 @@
 
     let pageReady = false;
     function initRules(callback) {
+        charset = (document.characterSet || document.charset || document.inputEncoding);
+        let equiv = document.querySelector('[http-equiv="Content-Type"]');
+        if (equiv && equiv.content) {
+            let innerCharSet = equiv.content.match(/charset\=([^;]+)/);
+            if (!innerCharSet) {
+                charsetValid = false;
+            } else if (innerCharSet[1].replace("-", "").toLowerCase() != charset.replace("-", "").toLowerCase()) {
+                charsetValid = false;
+            }
+        } else charsetValid = false;
         storage.getItem("rulesData", data => {
             /*0 wedata格式，1 pagetual格式*/
             ruleUrls = [{
@@ -5915,7 +5957,7 @@
         });
     }
 
-    function requestDoc(url, callback){
+    function requestDoc(url, callback) {
         let postParams = url.match(/#p{(.*)}$/);
         if (postParams) {
             postParams = postParams[1];
@@ -5926,7 +5968,7 @@
             'Referer': location.href,
             'User-Agent': navigator.userAgent,
             'accept': 'text/html,application/xhtml+xml,application/xml',
-            "Content-Type": (postParams ? "application/x-www-form-urlencoded" : "text/html") + ";charset=" + (document.characterSet || document.charset || document.inputEncoding),
+            "Content-Type": (postParams ? "application/x-www-form-urlencoded" : "text/html") + ";charset=" + charset,
         };
         if (ruleHeaders) {
             if (ruleHeaders.referer) {
@@ -5940,6 +5982,8 @@
             }
             if (ruleHeaders.contentType) {
                 headers.contentType = ruleHeaders.contentType;
+                let ruleCharset = ruleHeaders.contentType.match(/charset\=([^;]+)/);
+                if (ruleCharset) charset = ruleCharset[1];
             }
             if (ruleHeaders.cookie) {
                 headers.cookie = ruleHeaders.cookie;
@@ -5949,7 +5993,7 @@
             url: url,
             method: postParams ? 'POST' : 'GET',
             data: postParams,
-            overrideMimeType: 'text/html;charset=' + (document.characterSet || document.charset || document.inputEncoding),
+            overrideMimeType: 'text/html;charset=' + charset,
             headers: headers,
             timeout: 20000,
             onload: async function(res) {
@@ -5974,9 +6018,18 @@
                     doc.documentElement.innerHTML = response;
                     let base = doc.querySelector("base");
                     ruleParser.basePath = base ? base.href : url;
-                }
-                catch (e) {
+                } catch (e) {
                     debug('parse error:' + e.toString());
+                }
+                if (charsetValid && !ruleHeaders) {
+                    let equiv = doc.querySelector('[http-equiv="Content-Type"]');
+                    if (equiv && equiv.content) {
+                        let innerCharSet = equiv.content.match(/charset\=([^;]+)/);
+                        if (innerCharSet && innerCharSet[1].replace("-", "").toLowerCase() != charset.replace("-", "").toLowerCase()) {
+                            charset = innerCharSet[1];
+                            return requestDoc(url, callback);
+                        }
+                    }
                 }
                 let pageElement = ruleParser.getPageElement(doc);
                 if ((!pageElement || pageElement.length == 0) && res.status >= 400) {
@@ -6307,7 +6360,7 @@
             });
             if (!isPause) ruleParser.showAddedElements();
             manualPause = isPause;
-            if (sideController.inited || !isPause) storage.setItem("pauseState_" + location.host, isPause ? true : "");
+            if (sideController.inited) storage.setItem("pauseState_" + location.host, isPause ? true : "");
         }, 350);
     }
 
@@ -6449,13 +6502,14 @@
             if (document.hidden) return;
             if ((prevPathname !== window.location.pathname || prevSearch !== window.location.search) && window.location.href != ruleParser.historyUrl) {
                 checkUrlTime = 2000;
-                prevPathname = window.location.pathname;
-                prevSearch = window.location.search;
+                urlWillChange = true;
                 var e = new Event('pagetual_pushState');
                 e.arguments = arguments;
                 window.dispatchEvent(e);
                 clickedSth = false;
             }
+            prevPathname = window.location.pathname;
+            prevSearch = window.location.search;
         };
         checkUrlTimer = setTimeout(checkFunc, checkUrlTime);
 
@@ -7432,11 +7486,12 @@
                     returnFalse("Stop as no page when emu");
                     return;
                 }
-                if (/^UL$/i.test(pageEle[0].nodeName)) pageEle = pageEle[0].children;
-                pageEle = pageEle[parseInt((pageEle.length - 1) / 2)];
-                while(pageEle && ((pageEle.scrollHeight && pageEle.scrollHeight < 50) || !pageEle.offsetParent || (!/^IMG$/i.test(pageEle.nodeName) && !pageEle.innerHTML.trim()))) {
-                    if (pageEle.nextElementSibling) pageEle = pageEle.nextElementSibling;
-                    else break;
+                pageEle = [].filter.call(pageEle, ele => {return ele && !/^(style|script|meta)$/i.test(ele.nodeName)});
+                if (/^UL$/i.test(pageEle[0].nodeName) || pageEle.length == 1) pageEle = pageEle[0];
+                else if (pageEle[0].parentNode == pageEle[1].parentNode) {
+                    pageEle = pageEle[0].parentNode;
+                } else {
+                    pageEle = pageEle[0];
                 }
                 if (ruleParser.curSiteRule.singleUrl && orgContent != pageEle.innerHTML) {
                     orgContent = pageEle.innerHTML;
@@ -7485,12 +7540,12 @@
             }
             let eles = ruleParser.getPageElement(iframeDoc, emuIframe.contentWindow, true), checkItem;
             if (eles && eles.length > 0) {
-                checkItem = eles;
-                if (/^UL$/i.test(eles[0].nodeName)) checkItem = eles[0].children;
-                checkItem = checkItem[parseInt((checkItem.length - 1) / 2)];
-                while(checkItem && ((checkItem.scrollHeight && checkItem.scrollHeight < 50) || !checkItem.offsetParent || (!/^IMG$/i.test(checkItem.nodeName) && !checkItem.innerHTML.trim()))) {
-                    if (checkItem.nextElementSibling) checkItem = checkItem.nextElementSibling;
-                    else break;
+                eles = [].filter.call(eles, ele => {return ele && !/^(style|script|meta)$/i.test(ele.nodeName)});
+                if (/^UL$/i.test(eles[0].nodeName) || eles.length == 1) checkItem = eles[0];
+                else if (eles[0].parentNode == eles[1].parentNode) {
+                    checkItem = eles[0].parentNode;
+                } else {
+                    checkItem = eles[0];
                 }
             }
             if (!checkItem || (checkEval && !checkEval(iframeDoc))) {
