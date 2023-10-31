@@ -10,7 +10,7 @@
 // @description:zh-TW    線上看圖工具，支援圖片翻轉、旋轉、縮放、彈出大圖、批量儲存
 // @description:pt-BR    Poderosa ferramenta de visualização de imagens on-line, que pode pop-up/dimensionar/girar/salvar em lote imagens automaticamente
 // @description:ru       Мощный онлайн-инструмент для просмотра изображений, который может автоматически отображать/масштабировать/вращать/пакетно сохранять изображения
-// @version              2023.10.26.1
+// @version              2023.10.31.1
 // @icon                 data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAMAAADXqc3KAAAAV1BMVEUAAAD////29vbKysoqKioiIiKysrKhoaGTk5N9fX3z8/Pv7+/r6+vk5OTb29vOzs6Ojo5UVFQzMzMZGRkREREMDAy4uLisrKylpaV4eHhkZGRPT08/Pz/IfxjQAAAAgklEQVQoz53RRw7DIBBAUb5pxr2m3/+ckfDImwyJlL9DDzQgDIUMRu1vWOxTBdeM+onApENF0qHjpkOk2VTwLVEF40Kbfj1wK8AVu2pQA1aBBYDHJ1wy9Cf4cXD5chzNAvsAnc8TjoLAhIzsBao9w1rlVTIvkOYMd9nm6xPi168t9AYkbANdajpjcwAAAABJRU5ErkJggg==
 // @namespace            https://github.com/hoothin/UserScripts
 // @homepage             https://www.hoothin.com
@@ -16835,8 +16835,11 @@ ImgOps | https://imgops.com/#b#`;
                 // 已经在图库里面的
                 var self = this;
                 imgs.forEach(function(img) {
-                    pretreatment(img);
-                    if(!img.src || (img.nodeName=='IMG' && img.getAttribute && !img.getAttribute("src"))) return;
+                    let isImg = /^IMG$/i.test(img.nodeName);
+                    if (isImg) {
+                        pretreatment(img);
+                    }
+                    if(!img.src || (isImg && img.getAttribute && !img.getAttribute("src"))) return;
                     if (newer && self._dataCache[img.src]) return;
 
                     var result = findPic(img);
@@ -19204,7 +19207,7 @@ ImgOps | https://imgops.com/#b#`;
                             if (i != allData.length - 1) {
                                 i++;
                                 imgData = allData[i];
-                                while (imgData && imgData.img && imgData.img.parentNode && imgData.img.parentNode.classList.contains("pv-pic-window-container")) {
+                                while (imgData && imgData.img && imgData.img.parentNode && (imgData.img.parentNode.classList.contains("pv-pic-window-container") || imgData.src == this.data.src)) {
                                     i++;
                                     if (i == allData.length) return;
                                     imgData = allData[i];
@@ -19219,7 +19222,7 @@ ImgOps | https://imgops.com/#b#`;
                             if (i != 0) {
                                 i--;
                                 imgData = allData[i];
-                                while (imgData && imgData.img && imgData.img.parentNode && imgData.img.parentNode.classList.contains("pv-pic-window-container")) {
+                                while (imgData && imgData.img && imgData.img.parentNode && (imgData.img.parentNode.classList.contains("pv-pic-window-container") || imgData.src == this.data.src)) {
                                     i--;
                                     if (i == -1) return;
                                     imgData = allData[i];
@@ -22164,7 +22167,7 @@ ImgOps | https://imgops.com/#b#`;
                 if(src)type='tpRule';
             }
 
-            if(!src && iPASrc){//链接可能是一张图片...
+            if(/^IMG$/i.test(img.nodeName) && !src && iPASrc){//链接可能是一张图片...
                 if(iPASrc!=img.src && /\.(jpg|jpeg|png|gif|bmp)(\?[^\?]*)?$/i.test(iPASrc)){
                     src=iPASrc;
                 }

@@ -13,3 +13,4 @@ https://greasyfork.org/scripts/475574-handlers-helper/code/Handlers%20Helper.use
 https://greasyfork.org/scripts/477616-open-youtube-pc-and-mobile-video-links-in-new-tab/code/Open%20Youtube%20PC%20and%20Mobile%20video%20links%20in%20new%20tab.user.js
 https://userscripts.adtidy.org/beta/adguard-extra/1.0/adguard-extra.user.js
 https://userscripts.adtidy.org/beta/popup-blocker/2.5/popupblocker.user.js
+https://greasyfork.org/scripts/459541-youtube去广告-youtube-ad-blocker/code/YouTube去广告.user.js
