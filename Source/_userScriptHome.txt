@@ -26,6 +26,8 @@ https://greasyfork.org/scripts/423001-twitter-media-downloader
 https://greasyfork.org/scripts/438684-pagetual
 https://greasyfork.org/scripts/468182-google-colab-auto-reconnect
 https://greasyfork.org/scripts/459541-youtube去广告-youtube-ad-blocker
+https://greasyfork.org/scripts/433360-nova-youtube
+https://greasyfork.org/scripts/431573-youtube-cpu-tamer-by-animationframe
 
 https://greasyfork.org/scripts/440060-anti-anti-debugger
 https://greasyfork.org/scripts/449581-m3u8视频侦测下载器-自动嗅探

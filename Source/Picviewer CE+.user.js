@@ -10,7 +10,7 @@
 // @description:zh-TW    線上看圖工具，支援圖片翻轉、旋轉、縮放、彈出大圖、批量儲存
 // @description:pt-BR    Poderosa ferramenta de visualização de imagens on-line, que pode pop-up/dimensionar/girar/salvar em lote imagens automaticamente
 // @description:ru       Мощный онлайн-инструмент для просмотра изображений, который может автоматически отображать/масштабировать/вращать/пакетно сохранять изображения
-// @version              2023.10.31.1
+// @version              2023.11.4.1
 // @icon                 data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAMAAADXqc3KAAAAV1BMVEUAAAD////29vbKysoqKioiIiKysrKhoaGTk5N9fX3z8/Pv7+/r6+vk5OTb29vOzs6Ojo5UVFQzMzMZGRkREREMDAy4uLisrKylpaV4eHhkZGRPT08/Pz/IfxjQAAAAgklEQVQoz53RRw7DIBBAUb5pxr2m3/+ckfDImwyJlL9DDzQgDIUMRu1vWOxTBdeM+onApENF0qHjpkOk2VTwLVEF40Kbfj1wK8AVu2pQA1aBBYDHJ1wy9Cf4cXD5chzNAvsAnc8TjoLAhIzsBao9w1rlVTIvkOYMd9nm6xPi168t9AYkbANdajpjcwAAAABJRU5ErkJggg==
 // @namespace            https://github.com/hoothin/UserScripts
 // @homepage             https://www.hoothin.com
@@ -19207,7 +19207,7 @@ ImgOps | https://imgops.com/#b#`;
                             if (i != allData.length - 1) {
                                 i++;
                                 imgData = allData[i];
-                                while (imgData && imgData.img && imgData.img.parentNode && (imgData.img.parentNode.classList.contains("pv-pic-window-container") || imgData.src == this.data.src)) {
+                                while (imgData && imgData.img && imgData.img.parentNode && (imgData.img.parentNode.classList.contains("pv-pic-window-container") || imgData.src == this.data.src || (imgData.src && /^data:/.test(imgData.src) && imgData.src.length < 250))) {
                                     i++;
                                     if (i == allData.length) return;
                                     imgData = allData[i];
@@ -19222,7 +19222,7 @@ ImgOps | https://imgops.com/#b#`;
                             if (i != 0) {
                                 i--;
                                 imgData = allData[i];
-                                while (imgData && imgData.img && imgData.img.parentNode && (imgData.img.parentNode.classList.contains("pv-pic-window-container") || imgData.src == this.data.src)) {
+                                while (imgData && imgData.img && imgData.img.parentNode && (imgData.img.parentNode.classList.contains("pv-pic-window-container") || imgData.src == this.data.src || (imgData.src && /^data:/.test(imgData.src) && imgData.src.length < 250))) {
                                     i--;
                                     if (i == -1) return;
                                     imgData = allData[i];
@@ -21724,7 +21724,7 @@ ImgOps | https://imgops.com/#b#`;
                 };
                 var targetPosi=getContentClientRect(this.data.img);
                 var pa=this.data.img.parentNode;
-                if (pa && unsafeWindow.getComputedStyle(pa).overflow=='hidden' && pa.scrollHeight > 20 && pa.scrollWidth > 20) {
+                if (this.data.img.offsetTop && pa && pa.scrollHeight > 20 && pa.scrollWidth > 20) {
                     var paPosi=getContentClientRect(pa);
                     if (paPosi.width > 20 && paPosi.height > 20) {
                         if (paPosi.width < targetPosi.width) {

@@ -10,7 +10,7 @@
 // @name:fr      Pagetual
 // @name:it      Pagetual
 // @namespace    hoothin
-// @version      1.9.36.81
+// @version      1.9.36.84
 // @description  Perpetual pages - powerful auto-pager script. Auto loading next paginated web pages and inserting into current page. Support thousands of web sites without any rule.
 // @description:zh-CN  终极自动翻页 - 加载并拼接下一分页内容至当前页尾，智能适配任意网页
 // @description:zh-TW  終極自動翻頁 - 加載並拼接下一分頁內容至當前頁尾，智能適配任意網頁
@@ -68,14 +68,24 @@
         }, 1000);
     };
     if (window.name === 'pagetual-iframe' || (window.frameElement && window.frameElement.name === 'pagetual-iframe')) {
+        [].forEach.call(document.querySelectorAll("iframe"), iframe => {
+            iframe.name = 'pagetual-iframe';
+        });
         var domloaded = function() {
             window.parent.postMessage('pagetual-iframe:DOMLoaded', '*');
-            pauseVideo();
         };
         if (window.opera) {
             document.addEventListener('DOMContentLoaded', domloaded, false);
+            pauseVideo();
         } else {
             domloaded();
+            if (document.readystate == 'complete') {
+                pauseVideo();
+            } else {
+                window.addEventListener('load', e => {
+                    pauseVideo();
+                }, false);
+            }
         }
         if (getComputedStyle(document.documentElement).display == 'none') document.documentElement.style.display = 'block';
         if (document.body && getComputedStyle(document.body).display == 'none') document.body.style.display = 'block';
@@ -86,13 +96,6 @@
         try {
             if (window.self.innerWidth < 300 || window.self.innerHeight < 300) {
                 return;
-            }
-            if (document.readystate == 'complete') {
-                pauseVideo();
-            } else {
-                window.addEventListener('load', e => {
-                    pauseVideo();
-                }, false);
             }
         } catch(e) {
             return;
@@ -1749,18 +1752,6 @@
                         }
                         return eles;
                     }
-                    if (curHeight / bodyHeight <= 0.22) {
-                        let article = doc.querySelectorAll(mainSel);
-                        if (article && article.length == 1) {
-                            article = article[0];
-                            self.curSiteRule.pageElement = article.nodeName.toLowerCase() + (article.id ? "#" + article.id : "") + (article.className ? "." + article.className.replace(/ /g, ".") : "") + ">*";
-                            debug(self.curSiteRule.pageElement, 'Page element');
-                            return article.children;
-                        }
-                        self.curSiteRule.pageElement = allOfBody;
-                        debug(self.curSiteRule.pageElement, 'Page element');
-                        return [body];
-                    }
                     if (/^FORM$/i.test(ele.nodeName) && ele.parentNode != getBody(document)) {
                         self.curSiteRule.pageElement = geneSelector(ele) + ">*";
                         debug(self.curSiteRule.pageElement, 'Page element');
@@ -2737,17 +2728,46 @@
                         parent = parent.parentNode;
                     }
                     if (doc == document) {
-                        if (this.linkHasNoHref(nextLink) && (clickedSth || !isVisible(nextLink, _unsafeWindow))) {
-                            this.nextLinkHref = false;
-                            return null;
-                        } else {
-                            let nextLinkCs = _unsafeWindow.getComputedStyle(nextLink);
-                            if (nextLinkCs.cursor == "not-allowed") {
+                        if (this.linkHasNoHref(nextLink)) {
+                            if (clickedSth || !isVisible(nextLink, _unsafeWindow)) {
                                 this.nextLinkHref = false;
                                 return null;
                             }
-                            this.initNext = nextLink;
+                            let video = document.querySelector("video,iframe[id*=play],[id*=play]>iframe,iframe[src*=player],iframe[src*=m3u8]");
+                            if (video) {
+                                if (video.offsetParent && video.name != 'pagetual-iframe') {
+                                    let scrollWidth = video.scrollWidth || video.offsetWidth;
+                                    let scrollHeight = video.scrollHeight || video.offsetHeight;
+                                    if (/IFRAME/i.test(video.nodeName)) {
+                                    } else if (scrollWidth > 100 && scrollHeight > 100) {
+                                        let winWidth = window.innerWidth || document.documentElement.clientWidth;
+                                        let winHeight = window.innerHeight || document.documentElement.clientHeight;
+                                        if (scrollWidth > winWidth>>1 && scrollHeight > winHeight>>1) {
+                                            debug("Disable when large media found");
+                                        } else {
+                                            video = null;
+                                        }
+                                    } else {
+                                        video = null;
+                                    }
+                                } else {
+                                    video = null;
+                                }
+                            }
+                            if (video) {
+                                isPause = true;
+                                this.clearAddedElements();
+                                this.nextLinkHref = false;
+                                return null;
+                            }
                         }
+
+                        let nextLinkCs = _unsafeWindow.getComputedStyle(nextLink);
+                        if (nextLinkCs.cursor == "not-allowed") {
+                            this.nextLinkHref = false;
+                            return null;
+                        }
+                        this.initNext = nextLink;
                     }
                     let form = doc.querySelector('#search-form');
                     if (!nextLink.href && nextLink.hasAttribute("onclick") && form) {
@@ -3171,8 +3191,8 @@
                     [].forEach.call(ele.querySelectorAll("img,picture>source"), img => {
                         setLazyImg(img);
                     });
-                    [].forEach.call(ele.querySelectorAll("div[data-src][data-thumb],div.img[data-src],div.lazy[data-src]"), div => {
-                        div.style.setProperty("background-image", "url(" + div.dataset.src + ")", "important");
+                    [].forEach.call(ele.querySelectorAll("div[data-src][data-thumb],div.img[data-src],div.lazy[data-src],a.lazy[data-bg]"), div => {
+                        div.style.setProperty("background-image", "url(" + (div.dataset.src || div.dataset.bg) + ")", "important");
                     });
                 }
                 if (/^A$/i.test(ele.nodeName) && ele.classList.contains("lazyload")) {

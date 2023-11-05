@@ -9,7 +9,7 @@
 // @name:de      HTML5 Video Player erweitertes Skript
 // @namespace    https://github.com/xxxily/h5player
 // @homepage     https://github.com/xxxily/h5player
-// @version      3.7.8
+// @version      3.7.9
 // @description  视频增强脚本，支持所有H5视频网站，例如：B站、抖音、腾讯视频、优酷、爱奇艺、西瓜视频、油管（YouTube）、微博视频、知乎视频、搜狐视频、网易公开课、百度网盘、阿里云盘、ted、instagram、twitter等。全程快捷键控制，支持：倍速播放/加速播放、视频画面截图、画中画、网页全屏、调节亮度、饱和度、对比度、自定义配置功能增强等功能，为你提供愉悦的在线视频播放体验。还有视频广告快进、在线教程/教育视频倍速快学、视频文件下载等能力
 // @description:en  Video enhancement script, supports all H5 video websites, such as: Bilibili, Douyin, Tencent Video, Youku, iQiyi, Xigua Video, YouTube, Weibo Video, Zhihu Video, Sohu Video, NetEase Open Course, Baidu network disk, Alibaba cloud disk, ted, instagram, twitter, etc. Full shortcut key control, support: double-speed playback/accelerated playback, video screenshots, picture-in-picture, full-screen web pages, adjusting brightness, saturation, contrast
 // @description:zh  视频增强脚本，支持所有H5视频网站，例如：B站、抖音、腾讯视频、优酷、爱奇艺、西瓜视频、油管（YouTube）、微博视频、知乎视频、搜狐视频、网易公开课、百度网盘、阿里云盘、ted、instagram、twitter等。全程快捷键控制，支持：倍速播放/加速播放、视频画面截图、画中画、网页全屏、调节亮度、饱和度、对比度、自定义配置功能增强等功能，为你提供愉悦的在线视频播放体验。还有视频广告快进、在线教程/教育视频倍速快学、视频文件下载等能力
@@ -2406,6 +2406,8 @@ const taskConf = {
     // pause: ['.player-pause', '.player-pause02'], //多种情况对应不同的选择器时，可使用数组，插件会对选择器进行遍历，知道找到可用的为止
     pause: '.player-pause',
     play: '.player-play',
+    afterPlay: function (h5Player, taskConf) {},
+    afterPause: function (h5Player, taskConf) {},
     switchPlayStatus: '.player-play',
     playbackRate: function () {},
     // playbackRate: true, // 当给某个功能设置true时，表示使用网站自身的能力控制视频，而忽略插件的能力
@@ -2445,6 +2447,64 @@ const taskConf = {
     webFullScreen: 'button.ytp-size-button',
     fullScreen: 'button.ytp-fullscreen-button',
     next: '.ytp-next-button',
+    afterPlay: function (h5Player, taskConf) {
+      /* 解决快捷键暂停、播放后一直有loading图标滞留的问题 */
+      const player = h5Player.player();
+      const playerwWrap = player.closest('.html5-video-player');
+
+      if (!playerwWrap) {
+        return
+      }
+
+      playerwWrap.classList.add('ytp-autohide', 'playing-mode');
+
+      if (!playerwWrap.hasBindCustomEvents) {
+        const mousemoveHander = (event) => {
+          playerwWrap.classList.remove('ytp-autohide', 'ytp-hide-info-bar');
+
+          clearTimeout(playerwWrap.mousemoveTimer);
+          playerwWrap.mousemoveTimer = setTimeout(() => {
+            playerwWrap.classList.add('ytp-autohide', 'ytp-hide-info-bar');
+          }, 1000 * 2);
+        };
+
+        const clickHander = (event) => {
+          h5Player.switchPlayStatus();
+          mousemoveHander();
+        };
+
+        player.addEventListener('mousemove', mousemoveHander);
+        player.addEventListener('click', clickHander);
+
+        playerwWrap.hasBindCustomEvents = true;
+      }
+
+      const spinner = playerwWrap.querySelector('.ytp-spinner');
+
+      if (spinner) {
+        const hiddenSpinner = () => { spinner && (spinner.style.visibility = 'hidden'); };
+        const visibleSpinner = () => { spinner && (spinner.style.visibility = 'visible'); };
+
+        /* 点击播放时立即隐藏spinner */
+        hiddenSpinner();
+
+        clearTimeout(playerwWrap.spinnerTimer);
+        playerwWrap.spinnerTimer = setTimeout(() => {
+          /* 1秒后将spinner设置为none，并且恢复Spinner的可见状态，以便其它逻辑仍能正确控制spinner的显隐状态 */
+          spinner.style.display = 'none';
+          visibleSpinner();
+        }, 1000);
+      }
+    },
+    afterPause: function (h5Player, taskConf) {
+      const player = h5Player.player();
+      const playerwWrap = player.closest('.html5-video-player');
+
+      if (!playerwWrap) return
+
+      playerwWrap.classList.remove('ytp-autohide', 'playing-mode');
+      playerwWrap.classList.add('paused-mode');
+    },
     shortcuts: {
       register: [
         'escape'
@@ -4696,7 +4756,8 @@ let monkeyMenuList = [
   /* 推广位，只允许推荐有用的东西 */
   {
     title: i18n.t('recommend'),
-    disable: !i18n.language().includes('zh'),
+    // disable: !i18n.language().includes('zh'),
+    disable: true,
     fn: () => {
       function randomZeroOrOne () {
         return Math.floor(Math.random() * 2)
@@ -6082,7 +6143,7 @@ const h5Player = {
    */
   setPlaybackRatePlus: function (num) {
     num = Number(num);
-    if (!num || !Number.isInteger(num)) {
+    if (!num || Number.isNaN(num)) {
       return false
     }
 
@@ -6747,6 +6808,8 @@ const h5Player = {
 
         t.tips(i18n.t('tipsMsg.play'));
       }
+
+      TCC$1.doTask('afterPlay');
     } else {
       if (TCC$1.doTask('pause')) ; else {
         if (t.mediaPlusApi) {
@@ -6764,6 +6827,8 @@ const h5Player = {
 
         t.tips(i18n.t('tipsMsg.pause'));
       }
+
+      TCC$1.doTask('afterPause');
     }
   },
 
