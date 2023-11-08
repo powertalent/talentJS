@@ -76,7 +76,7 @@
 // @description:zh 拦截网页弹窗广告
 // @description:zh-HK 封鎖網頁上的彈出式視窗廣告
 // @description:zh-TW 封鎖於網頁上之彈出式視窗廣告
-// @version 2.5.92
+// @version 2.5.93
 // @license LGPL-3.0; https://github.com/AdguardTeam/PopupBlocker/blob/master/LICENSE
 // @downloadUrl https://userscripts.adtidy.org/beta/popup-blocker/2.5/popupblocker.user.js
 // @updateUrl https://userscripts.adtidy.org/beta/popup-blocker/2.5/popupblocker.meta.js
@@ -90,7 +90,7 @@
 // @grant GM_listValues
 // @grant GM_getResourceURL
 // @grant unsafeWindow
-// @icon ./assets/128.png https://userscripts.adtidy.org/beta/popup-blocker/2.5/assets/128.png
+// @icon https://userscripts.adtidy.org/beta/popup-blocker/2.5/assets/128.png
 // @resource ./assets/fonts/bold/OpenSans-Bold.woff https://userscripts.adtidy.org/beta/popup-blocker/2.5/assets/fonts/bold/OpenSans-Bold.woff
 // @resource ./assets/fonts/bold/OpenSans-Bold.woff2 https://userscripts.adtidy.org/beta/popup-blocker/2.5/assets/fonts/bold/OpenSans-Bold.woff2
 // @resource ./assets/fonts/regular/OpenSans-Regular.woff https://userscripts.adtidy.org/beta/popup-blocker/2.5/assets/fonts/regular/OpenSans-Regular.woff
