@@ -14,20 +14,21 @@ https://greasyfork.org/scripts/23772-absolute-enable-right-click-copy
 https://greasyfork.org/scripts/24204-picviewer-ce
 https://greasyfork.org/scripts/33005-direct-download-from-google-play
 https://greasyfork.org/scripts/381682-html5视频播放器增强脚本
+https://greasyfork.org/scripts/386925-youtube-ad-cleaner-include-non-skippable-ads-works
 https://greasyfork.org/scripts/387969-twitterᴾˡᵘˢ-view-twitter-origin-images
 https://greasyfork.org/scripts/406535-instagram-download-button
 https://greasyfork.org/scripts/419215-自动无缝翻页
 https://greasyfork.org/scripts/421603-magic-userscript-show-site-all-userjs
+https://greasyfork.org/scripts/423001-twitter-media-downloader
+https://greasyfork.org/scripts/431573-youtube-cpu-tamer-by-animationframe
+https://greasyfork.org/scripts/433360-nova-youtube
 https://greasyfork.org/scripts/436115-return-youtube-dislike
+https://greasyfork.org/scripts/438684-pagetual
 https://greasyfork.org/scripts/438894-timerhooker-english-version
 https://greasyfork.org/scripts/443342-telegram-photo-protection-remover
-https://greasyfork.org/scripts/8128-youtube-h-264
-https://greasyfork.org/scripts/423001-twitter-media-downloader
-https://greasyfork.org/scripts/438684-pagetual
-https://greasyfork.org/scripts/468182-google-colab-auto-reconnect
 https://greasyfork.org/scripts/459541-youtube去广告-youtube-ad-blocker
-https://greasyfork.org/scripts/433360-nova-youtube
-https://greasyfork.org/scripts/431573-youtube-cpu-tamer-by-animationframe
+https://greasyfork.org/scripts/468182-google-colab-auto-reconnect
+https://greasyfork.org/scripts/8128-youtube-h-264
 
 https://greasyfork.org/scripts/440060-anti-anti-debugger
 https://greasyfork.org/scripts/449581-m3u8视频侦测下载器-自动嗅探
