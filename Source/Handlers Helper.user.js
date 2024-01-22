@@ -4,10 +4,12 @@
 // @grant       GM_getValue
 // @grant       GM_setValue
 // @grant       GM_registerMenuCommand
-// @version     2.4
+// @version     2.7
 // @author      -
 // @description Helper for protocol_hook.lua
 // @namespace Violentmonkey Scripts
+// @downloadURL https://update.greasyfork.org/scripts/475574/Handlers%20Helper.user.js
+// @updateURL https://update.greasyfork.org/scripts/475574/Handlers%20Helper.meta.js
 // ==/UserScript==
 
 //'iptv'
@@ -60,6 +62,22 @@ function attachDrag(elem) {
 
   function GM_btoaUrl(url) {
     return btoa(url).replace(/\//g, "_").replace(/\+/g, "-").replace(/\=/g, "");
+  }
+
+  function popout(chaturl) {
+      window.open(chaturl, "", "fullscreen=no,toolbar=no,titlebar=no,menubar=no,location=no,width=" + live_window_width + ",height=" + live_window_height);
+  }
+
+  function livechatopener(url) {
+        var nurl = new URL(url);
+        if (nurl.href.indexOf('www.youtube.com/watch') != -1 || nurl.href.indexOf('m.youtube.com/watch') != -1) {
+            popout("https://www.youtube.com/live_chat?is_popout=1&v=" + nurl.search.split("v=")[1]);
+        } else if (nurl.href.match('https://.*?.twitch.tv/.')) {
+            popout("https://www.twitch.tv/popout" + nurl.pathname + "/chat?popout=");
+        }  else if (nurl.href.match('https://.*?.nimo.tv/.')) {
+            var streamid = document.querySelector('a[href="' + nurl.pathname + '"] .nimo-player.n-as-full').id.replace('home-hot-', '');
+            popout("https://www.nimo.tv/popout/chat/" + streamid);
+        }
   }
 
   function EA(attr, type) {
@@ -123,13 +141,7 @@ function attachDrag(elem) {
         url2 = url2 + '?hls=1';
     }
     if (app == 'stream' && livechat == true) {
-        var nurl = new URL(url);
-        if (nurl.href.indexOf('www.youtube.com/watch') != -1 || nurl.href.indexOf('m.youtube.com/watch') != -1) {
-        window.open("https://www.youtube.com/live_chat?is_popout=1&v=" + nurl.search.split("v=")[1], "", "fullscreen=no,toolbar=no,titlebar=no,menubar=no,location=no,width=" + live_window_width + ",height=" + live_window_height)
-
-        } else if (nurl.href.match('https://.*?.twitch.tv/.')) {
-        window.open("https://www.twitch.tv/popout" + nurl.pathname + "/chat?popout=", "", "fullscreen=no,toolbar=no,titlebar=no,menubar=no,location=no,width=" + live_window_width + ",height=" + live_window_height)
-        }
+        livechatopener(url);
     }
     console.log(url2);
     location.href = url2;

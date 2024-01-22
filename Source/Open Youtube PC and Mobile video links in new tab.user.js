@@ -11,6 +11,8 @@
 // @license      MIT License
 // @grant        GM_openInTab
 // @run-at       document-start
+// @downloadURL https://update.greasyfork.org/scripts/477616/Open%20Youtube%20PC%20and%20Mobile%20video%20links%20in%20new%20tab.user.js
+// @updateURL https://update.greasyfork.org/scripts/477616/Open%20Youtube%20PC%20and%20Mobile%20video%20links%20in%20new%20tab.meta.js
 // ==/UserScript==
 
 var suppressing;

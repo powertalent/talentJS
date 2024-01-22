@@ -7,6 +7,8 @@
 // @include      *
 // @grant        unsafeWindow
 // @run-at       document-start
+// @downloadURL https://update.greasyfork.org/scripts/440060/Anti%20Anti-debugger.user.js
+// @updateURL https://update.greasyfork.org/scripts/440060/Anti%20Anti-debugger.meta.js
 // ==/UserScript==
 
 (function() {

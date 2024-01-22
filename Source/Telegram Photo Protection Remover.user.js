@@ -7,6 +7,8 @@
 // @match        https://web.telegram.org/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=telegram.org
 // @license      MIT
+// @downloadURL https://update.greasyfork.org/scripts/443342/Telegram%20Photo%20Protection%20Remover.user.js
+// @updateURL https://update.greasyfork.org/scripts/443342/Telegram%20Photo%20Protection%20Remover.meta.js
 // ==/UserScript==
 
 (function() {

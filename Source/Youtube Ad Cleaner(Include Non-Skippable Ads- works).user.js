@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name         Youtube Ad Cleaner(Include Non-Skippable Ads- works)
 // @namespace    http://tampermonkey.net/
-// @version      1.50.6
+// @version      1.50.8
 // @description  (Be Tested Daily) Bypass all youtube ads (skippable and non-skippable Ads) plus download youtube video on the fly
 // @ Please add youtube.com to the whitelist if you are using any adblocker to avoid reload loops
 // @author       BjDanny
 // @run-at          document-start
 // @match        *://*.youtube.com/*
+// @downloadURL https://update.greasyfork.org/scripts/386925/Youtube%20Ad%20Cleaner%28Include%20Non-Skippable%20Ads-%20works%29.user.js
+// @updateURL https://update.greasyfork.org/scripts/386925/Youtube%20Ad%20Cleaner%28Include%20Non-Skippable%20Ads-%20works%29.meta.js
 // ==/UserScript==
 'use strict';
 var currentTime, duration, yt;
@@ -69,38 +71,16 @@ function createButton()
     }
 }
 
-
-function adMonitor()
-{
-    try
-    {
-        const yt = document.getElementById("movie_player");
-        const keyWords = ["Your video","Video will play","Ad will end"];
-        currentTime = yt.getCurrentTime();
-        duration = yt.getDuration();
-        if ( yt !== undefined )
-        {
-            keyWords.forEach(k =>{
-                if (document.getElementsByClassName("ytp-ad-text ytp-ad-preview-text")[0].textContent.includes(k) == true)
-                   {
-                       let videoAd = document.querySelector(".ad-showing video") || document.querySelector("video");
-                       videoAd.currentTime = videoAd.duration;
-                       console.log('Skipped a none clickable Video Ad.')
-
-                   }});
-         }
-      }
-    catch(e)
-    {
-      return;
-    }
+function adOverlay(){
+const ad = document.querySelector(".ytp-ad-text");
+const video = document.querySelector("video");
+if (ad){
+video.currentTime = video.duration;
+}
+let btn = document.querySelector(".ytp-ad-skip-button-icon-modern");
+if(btn){document.querySelector(".ytp-ad-skip-button-icon-modern").click();console.log("Skipped Video Ad");}
 }
 
-
-function setFix()
-{
-        setInterval(adMonitor, 1000);
-}
 
 function removeSp()
 {
@@ -136,6 +116,7 @@ function killAd()
     Ads.removeByTagName();
     Ads.removeVdoAd();
     removeSp();
+    adOverlay();
 }
 
-document.addEventListener('DOMContentLoaded', ()=>{setFix();setInterval(killAd, 100); setTimeout(createButton, 5000);});
+document.addEventListener('DOMContentLoaded', ()=>{setInterval(killAd, 100); setTimeout(createButton, 5000);});

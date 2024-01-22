@@ -9,7 +9,7 @@
 // @name:hi             इंस्टाग्राम डाउनलोडर
 // @name:ru             Загрузчик Instagram
 // @namespace           https://github.com/y252328/Instagram_Download_Button
-// @version             1.17.10
+// @version             1.17.16
 // @compatible          chrome
 // @description         Add the download button and the open button to download or open profile picture and media in the posts, stories, and highlights in Instagram
 // @description:zh-TW   在Instagram頁面加入下載按鈕與開啟按鈕，透過這些按鈕可以下載或開啟大頭貼與貼文、限時動態、Highlight中的照片或影片
@@ -25,6 +25,8 @@
 // @icon                https://www.google.com/s2/favicons?sz=64&domain=instagram.com
 // @grant               none
 // @license             MIT
+// @downloadURL https://update.greasyfork.org/scripts/406535/Instagram%20Download%20Button.user.js
+// @updateURL https://update.greasyfork.org/scripts/406535/Instagram%20Download%20Button.meta.js
 // ==/UserScript==
 
 // TO-DO:
@@ -81,6 +83,8 @@
     <path d="m465.016 0h-344.456c-9.52 0-17.223 7.703-17.223 17.223v86.114h-86.114c-9.52 0-17.223 7.703-17.223 17.223v344.456c0 9.52 7.703 17.223 17.223 17.223h344.456c9.52 0 17.223-7.703 17.223-17.223v-86.114h86.114c9.52 0 17.223-7.703 17.223-17.223v-344.456c0-9.52-7.703-17.223-17.223-17.223zm-120.56 447.793h-310.01v-310.01h310.011v310.01zm103.337-103.337h-68.891v-223.896c0-9.52-7.703-17.223-17.223-17.223h-223.896v-68.891h310.011v310.01z"/>
 </svg>`;
 
+    var preUrl = "";
+
     document.addEventListener('keydown', keyDownHandler);
 
     function keyDownHandler(event) {
@@ -128,7 +132,7 @@
     }
 
     function isPostPage() {
-        return Boolean(window.location.href.match(postUrlPattern))
+        return Boolean(window.location.href.match(postUrlPattern));
     }
 
     function queryHas(root, selector, has) {
@@ -143,6 +147,7 @@
     }
 
     var checkExistTimer = setInterval(function () {
+        const curUrl = window.location.href;
         const savePostSelector = 'article *:not(li)>*>*>*>div:not([class])>div[role="button"]:not([style])';
         const storySelector = 'section > *:not(main) header div>svg:not([aria-label=""])';
         const profileSelector = 'header section svg circle';
@@ -151,6 +156,13 @@
         // Thanks for Jenie providing color check code
         // https://greasyfork.org/zh-TW/scripts/406535-instagram-download-button/discussions/122185
         let iconColor = getComputedStyle(document.body).backgroundColor === 'rgb(0, 0, 0)' ? 'white' : 'black';
+
+        // clear all custom buttons when url changing
+        if (preUrl !== curUrl) {
+            while (document.getElementsByClassName('custom-btn').length !== 0) {
+                document.getElementsByClassName('custom-btn')[0].remove();
+            }
+        }
 
         // check post
         let articleList = document.querySelectorAll('article');
@@ -172,7 +184,7 @@
         }
 
         // check profile
-        if (document.getElementsByClassName('custom-btn').length === 0) {
+        if (document.getElementsByClassName('custom-btn').length === 0 && !curUrl.includes("stor")) {
             if (document.querySelector(profileSelector)) {
                 addCustomBtn(document.querySelector(profileSelector), iconColor, append2Header);
             }
@@ -186,6 +198,8 @@
                 addCustomBtn(buttonDiv, 'white', append2Story);
             }
         }
+
+        preUrl = curUrl;
     }, 500);
 
     function append2Post(node, btn) {
@@ -353,9 +367,9 @@
             // single img or video
             if (!disableNewUrlFetchMethod) url = await getUrlFromInfoApi(articleNode);
             if (url === null) {
-                if (articleNode.querySelector('article  div > video')) {
+                let videoElem = articleNode.querySelector('video');
+                if (videoElem) {
                     // media type is video
-                    let videoElem = articleNode.querySelector('article  div > video');
                     url = videoElem.getAttribute('src');
                     if (videoElem.hasAttribute('videoURL')) {
                         url = videoElem.getAttribute('videoURL');
@@ -373,7 +387,7 @@
             // multiple imgs or videos
             const postView = location.pathname.startsWith('/p/');
             let dotsElements = [...articleNode.querySelectorAll(`div._acnb`)];
-            let mediaIndex = [...dotsElements].reduce((result, element, index) => (element.classList.length === 2 ? index : result), null);
+            mediaIndex = [...dotsElements].reduce((result, element, index) => (element.classList.length === 2 ? index : result), null);
             if (mediaIndex === null) throw 'Cannot find the media index';
 
             if (!disableNewUrlFetchMethod) url = await getUrlFromInfoApi(articleNode, mediaIndex);
@@ -382,7 +396,6 @@
                 const listElementWidth = Math.max(...listElements.map(element => element.clientWidth));
 
                 const positionsMap = listElements.reduce((result, element) => {
-                    // console.log(Number(element.style.transform.match(/-?(\d+)/)[1]));
                     const position = Math.round(Number(element.style.transform.match(/-?(\d+)/)[1]) / listElementWidth);
                     return { ...result, [position]: element };
                 }, {});
@@ -418,8 +431,8 @@
         //   5. send info api request with media id and app id
         //   6. get media url from response json
         try {
-            const appIdPattern = /"X-IG-App-ID":"([\d]+)"/
-            const mediaIdPattern = /instagram:\/\/media\?id=(\d+)|["' ]media_id["' ]:["' ](\d+)["' ]/
+            const appIdPattern = /"X-IG-App-ID":"([\d]+)"/;
+            const mediaIdPattern = /instagram:\/\/media\?id=(\d+)|["' ]media_id["' ]:["' ](\d+)["' ]/;
             function findAppId() {
                 let bodyScripts = document.querySelectorAll("body > script");
                 for (let i = 0; i < bodyScripts.length; ++i) {
@@ -431,27 +444,44 @@
             }
 
             async function findMediaId() {
-                let match = window.location.href.match(/www.instagram.com\/stories\/[^\/]+\/(\d+)/)
-                if (match) return match[1];
+                // method 1
+                function method1() {
+                    let match = window.location.href.match(/www.instagram.com\/stories\/[^\/]+\/(\d+)/);
+                    if (match) return match[1];
+                }
 
-                let postId = await findPostId(articleNode);
-                if (!postId) {
-                    console.log("Cannot find post id");
-                    return null;
-                }
-                if (!(postId in mediaIdCache)) {
-                    let postUrl = `https://www.instagram.com/p/${postId}/`;
-                    let resp = await fetch(postUrl);
-                    let text = await resp.text();
-                    let idMatch = text.match(mediaIdPattern);
-                    let mediaId = null;
-                    for (let i = 0; i < idMatch.length; ++i) {
-                        if (idMatch[i]) mediaId = idMatch[i];
+                // method 3
+                async function method3() {
+                    let postId = await findPostId(articleNode);
+                    if (!postId) {
+                        console.log("Cannot find post id");
+                        return null;
                     }
-                    if (!mediaId) return null;
-                    mediaIdCache[postId] = mediaId;
+
+                    if (!(postId in mediaIdCache)) {
+                        let postUrl = `https://www.instagram.com/p/${postId}/`;
+                        let resp = await fetch(postUrl);
+                        let text = await resp.text();
+                        let idMatch = text.match(mediaIdPattern);
+                        let mediaId = null;
+                        for (let i = 0; i < idMatch.length; ++i) {
+                            if (idMatch[i]) mediaId = idMatch[i];
+                        }
+                        if (!mediaId) return null;
+                        mediaIdCache[postId] = mediaId;
+                    }
+                    return mediaIdCache[postId];
                 }
-                return mediaIdCache[postId];
+
+                function method2() {
+                    let scriptJson = document.querySelectorAll('script[type="application/json"]');
+                    for (let i = 0; i < scriptJson.length; i++) {
+                        let match = scriptJson[i].text.match(/"pk":"(\d+)","id":"[\d_]+"/);
+                        if (match) return match[1];
+                    }
+                }
+
+                return method1() || await method3() || method2();
             }
 
             function getImgOrVedioUrl(item) {
@@ -504,13 +534,21 @@
     }
 
     function findPostName(articleNode) {
-        const imgAlt = articleNode.querySelector('canvas ~ * img').getAttribute('alt');
-        let links = articleNode.querySelectorAll('a');
-        for (let i = 0; i < links.length; i++) {
-            const posterName = links[i].getAttribute('href').replace(/\//g, '');
-            if (imgAlt.includes(posterName)) {
-                return links[i];
+        // videos are handled differently
+        let imgAlt = articleNode.querySelector('canvas ~ * img');
+        if (imgAlt) {
+            imgAlt = imgAlt.getAttribute('alt');
+            let links = articleNode.querySelectorAll('a');
+            for (let i = 0; i < links.length; i++) {
+                const posterName = links[i].getAttribute('href').replace(/\//g, '');
+                if (imgAlt.includes(posterName)) {
+                    return links[i];
+                }
             }
+        } else {
+            // first H2 with a direction set
+            const el = document.querySelector('h2[dir]');
+            return el.innerText;
         }
     }
 
@@ -558,22 +596,26 @@
         // extract url from target story and download or open it
         let sectionNode = storyGetSectionNode(target);
         let url = await storyGetUrl(target, sectionNode);
-
+        const posterUrlPat = /\/stories\/(.*)\/.*\//
         // download or open media url
         if (target.getAttribute('class').includes('download-btn')) {
-            let mediaName = url
-                .split('?')[0]
-                .split('\\')
-                .pop()
-                .split('/')
-                .pop();
+            let mediaName = url.split('?')[0].split('\\').pop().split('/').pop();
             mediaName = mediaName.substring(0, mediaName.lastIndexOf('.'));
             let datetime = new Date(sectionNode.querySelector('time').getAttribute('datetime'));
-            let posterName = sectionNode
-                .querySelector('header a')
-                .getAttribute('href')
-                .replace(/\//g, '');
+            let posterName = "unkown";
+            // method 1
+            const posterNameHeader = sectionNode.querySelector('header a');
+            if (posterNameHeader) {
+                posterName = posterNameHeader.getAttribute('href').replace(/\//g, '');
+            }
 
+            // method 2
+            if (posterName === "unkown") {
+                const match = window.location.pathname.match(posterUrlPat);
+                if (match) {
+                    posterName = match[1];
+                }
+            }
             let filename = filenameFormat(storyFilenameTemplate, posterName, datetime, mediaName);
             downloadResource(url, filename);
         } else {
@@ -616,7 +658,7 @@
         filename = filename.replace(/%id%/g, id);
         filename = filename.replace(/%datetime%/g, datetimeFormat(datetimeTemplate, datetime));
         filename = filename.replace(/%medianame%/g, medianame);
-        filename = filename.replace(/%postId%/g, postId)
+        filename = filename.replace(/%postId%/g, postId);
         filename = filename.replace(/%mediaIndex%/g, mediaIndex);
         return filename;
     }
@@ -652,7 +694,7 @@
     function forceDownload(blob, filename, extension) {
         // ref: https://stackoverflow.com/questions/49474775/chrome-65-blocks-cross-origin-a-download-client-side-workaround-to-force-down
         var a = document.createElement('a');
-        if (replaceJpegWithJpg) extension = extension.replace('jpeg', 'jpg')
+        if (replaceJpegWithJpg) extension = extension.replace('jpeg', 'jpg');
         a.download = filename + '.' + extension;
         a.href = blob;
         // For Firefox https://stackoverflow.com/a/32226068
@@ -678,6 +720,7 @@
         }
         fetch(url, {
             headers: new Headers({
+                'User-Agent': window.navigator.userAgent,
                 Origin: location.origin,
             }),
             mode: 'cors',

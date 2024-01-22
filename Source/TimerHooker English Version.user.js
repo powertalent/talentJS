@@ -12,6 +12,8 @@
 // @grant           none
 // @license         GPL-3.0-or-later
 // @namespace https://
+// @downloadURL https://update.greasyfork.org/scripts/438894/TimerHooker%20English%20Version.user.js
+// @updateURL https://update.greasyfork.org/scripts/438894/TimerHooker%20English%20Version.meta.js
 // ==/UserScript==
 /**
  * ---------------------------

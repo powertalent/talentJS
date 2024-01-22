@@ -10,7 +10,7 @@
 // @description:zh-TW    線上看圖工具，支援圖片翻轉、旋轉、縮放、彈出大圖、批量儲存
 // @description:pt-BR    Poderosa ferramenta de visualização de imagens on-line, que pode pop-up/dimensionar/girar/salvar em lote imagens automaticamente
 // @description:ru       Мощный онлайн-инструмент для просмотра изображений, который может автоматически отображать/масштабировать/вращать/пакетно сохранять изображения
-// @version              2023.11.9.1
+// @version              2024.1.21.3
 // @icon                 data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAMAAADXqc3KAAAAV1BMVEUAAAD////29vbKysoqKioiIiKysrKhoaGTk5N9fX3z8/Pv7+/r6+vk5OTb29vOzs6Ojo5UVFQzMzMZGRkREREMDAy4uLisrKylpaV4eHhkZGRPT08/Pz/IfxjQAAAAgklEQVQoz53RRw7DIBBAUb5pxr2m3/+ckfDImwyJlL9DDzQgDIUMRu1vWOxTBdeM+onApENF0qHjpkOk2VTwLVEF40Kbfj1wK8AVu2pQA1aBBYDHJ1wy9Cf4cXD5chzNAvsAnc8TjoLAhIzsBao9w1rlVTIvkOYMd9nm6xPi168t9AYkbANdajpjcwAAAABJRU5ErkJggg==
 // @namespace            https://github.com/hoothin/UserScripts
 // @homepage             https://www.hoothin.com
@@ -25,6 +25,7 @@
 // @connect              *
 // @grant                GM_getValue
 // @grant                GM_setValue
+// @grant                GM_deleteValue
 // @grant                GM_addStyle
 // @grant                GM_openInTab
 // @grant                GM_setClipboard
@@ -34,6 +35,7 @@
 // @grant                GM_download
 // @grant                GM.getValue
 // @grant                GM.setValue
+// @grant                GM.deleteValue
 // @grant                GM.addStyle
 // @grant                GM.openInTab
 // @grant                GM.setClipboard
@@ -42,8 +44,8 @@
 // @grant                GM.notification
 // @grant                unsafeWindow
 // @require              https://greasyfork.org/scripts/6158-gm-config-cn/code/GM_config%20CN.js?version=23710
-// @require              https://greasyfork.org/scripts/438080-pvcep-rules/code/pvcep_rules.js?version=1269250
-// @require              https://greasyfork.org/scripts/440698-pvcep-lang/code/pvcep_lang.js?version=1262309
+// @require              https://update.greasyfork.org/scripts/438080/1314917/pvcep_rules.js
+// @require              https://update.greasyfork.org/scripts/440698/1311439/pvcep_lang.js
 // @match                *://*/*
 // @exclude              http://www.toodledo.com/tasks/*
 // @exclude              http*://maps.google.com*/*
@@ -55,6 +57,8 @@
 // @created              2011-6-15
 // @contributionURL      https://ko-fi.com/hoothin
 // @contributionAmount   1
+// @downloadURL https://update.greasyfork.org/scripts/24204/Picviewer%20CE%2B.user.js
+// @updateURL https://update.greasyfork.org/scripts/24204/Picviewer%20CE%2B.meta.js
 // ==/UserScript==
 
 if (window.top != window.self) {
@@ -11734,7 +11738,7 @@ ImgOps | https://imgops.com/#b#`;
                 let isPost = option && /^post$/i.test(option.method);
                 _GM_xmlhttpRequest({
                     method: (option && option.method) || 'GET',
-                    url: url,
+                    url: url.trim(),
                     data: (option && option.body) || '',
                     headers: (option && option.headers) || {
                         referer: url,
@@ -11770,6 +11774,22 @@ ImgOps | https://imgops.com/#b#`;
         }
     } else GM_fetch = fetch;
 
+    function icon2Base64(icon, content, iconStyle) {
+        if (!content) return false;
+        var canvas = document.createElement("canvas");
+        let size = Math.min((icon.clientWidth || icon.offsetWidth), (icon.clientHeight || icon.offsetHeight));
+        canvas.width = size;
+        canvas.height = size;
+        var ctx = canvas.getContext("2d");
+        ctx.font = iconStyle.font || (iconStyle.fontSize + " " + iconStyle.fontFamily);
+        ctx.strokeStyle = iconStyle.color || "black";
+        ctx.fillStyle = iconStyle.color || "black";
+        ctx.textBaseline = "top";
+        let metrics = ctx.measureText(content);
+        ctx.fillText(content, (canvas.width - metrics.width) / 2, (canvas.height - parseInt(iconStyle.fontSize)) / 2);
+        return canvas.toDataURL("image/png");
+    }
+
     function getRightSaveName(url, name, type, _ext) {
         /*
          0: i18n("default"),
@@ -11801,30 +11821,55 @@ ImgOps | https://imgops.com/#b#`;
         }
         switch (type) {
             case 1:
-                name = (name || nameFromUrl || "image").substr(-50);
+                name = (name || nameFromUrl || "image").substr(-80);
                 break;
             case 2:
-                name = (nameFromUrl || url || "image").substr(-50);
+                name = (nameFromUrl || url || "image").substr(-80);
                 break;
             case 3:
                 if (nameFromUrl && !name) {
-                    name = nameFromUrl.substr(-50);
+                    name = nameFromUrl.substr(-80);
                 } else if (nameFromUrl && name) {
-                    name = nameFromUrl.substr(-50) + " - " + name.substr(-50);
+                    name = nameFromUrl.substr(-80) + " - " + name.substr(-80);
                 } else if (!nameFromUrl && !name) {
                     name = "image";
                 }
                 break;
             default:
-                name = (nameFromUrl || name || "image").substr(-50);
+                name = (nameFromUrl || name || "image").substr(-80);
                 break;
         }
         return name.replace(/.*\/([^\/]+?)(\?|@|$).*/, "$1").replace(/[\*\/:<>\?\\\|]/g, "").replace(/\.\w{2,5}$/, "").trim() + (ext || ".png");
     }
+    function canonicalUri(src) {
+        if (src.charAt(0) == "#") return location.href + src;
+        if (src.charAt(0) == "?") return location.href.replace(/^([^\?#]+).*/, "$1" + src);
+        var root_page = /^[^?#]*\//.exec(location.href)[0],
+            base_path = location.pathname.replace(/\/[^\/]+\.[^\/]+$/, "/"),
+            root_domain = /^\w+\:\/\/\/?[^\/]+/.exec(root_page)[0],
+            absolute_regex = /^\w+\:\/\//;
+        src = src.replace("./", "");
+        if (/^\/\/\/?/.test(src)) {
+            src = location.protocol + src;
+        }
+        else if (!absolute_regex.test(src) && src.charAt(0) != "/"){
+            src = (base_path || "") + src;
+        }
+        return (absolute_regex.test(src) ? src : ((src.charAt(0) == "/" ? root_domain : root_page) + src));
+    }
     var _GM_download = (typeof GM_download == 'undefined') ? (url, name, type) => {
-        name = document.title + " - " + getRightSaveName(url, name, type);
-        saveAs(url, name);
+        url = canonicalUri(url);
+        urlToBlob(url, (blob, ext) => {
+            if(blob){
+                try {
+                    saveAs(blob, document.title + " - " + getRightSaveName(url, name, type, ext));
+                } catch(e) {
+                    console.log(e);
+                }
+            }
+        });
     } : (url, name, type) => {
+        url = canonicalUri(url);
         name = document.title + " - " + getRightSaveName(url, name, type);
         let urlSplit = ["", ""];
         if (url.split) {
@@ -11840,11 +11885,9 @@ ImgOps | https://imgops.com/#b#`;
             }],
             onerror: e => {
                 console.log(e);
-                saveAs(url, name);
             },
             ontimeout: e => {
                 console.log(e);
-                saveAs(url, name);
             }
         })
     };
@@ -11865,10 +11908,14 @@ ImgOps | https://imgops.com/#b#`;
         };
         img.src = dataurl;
     }
-    function urlToBlob(url, cb, forcePng) {
+    function urlToBlob(url, cb, forcePng, tryTimes = 0) {
+        tryTimes++;
+        if (tryTimes > 3) {
+            return cb(null, '');
+        }
         _GM_xmlhttpRequest({
             method: 'GET',
-            url: url,
+            url: url.trim(),
             responseType:'blob',
             timeout:20000,
             headers: {
@@ -11891,17 +11938,19 @@ ImgOps | https://imgops.com/#b#`;
                         });
                     };
                     a.onerror = function (e){
-                        cb(null, '');
+                        urlToBlob(url, cb, forcePng, tryTimes);
                     }
-                }else{
+                } else if (!blob || !blob.size) {
+                    urlToBlob(url, cb, forcePng, tryTimes);
+                } else {
                     cb(blob, ext);
                 }
             },
             onerror: function(){
-                cb(null, '');
+                urlToBlob(url, cb, forcePng, tryTimes);
             },
             ontimeout: function(){
-                cb(null, '');
+                urlToBlob(url, cb, forcePng, tryTimes);
             }
         });
     }
@@ -11942,7 +11991,7 @@ ImgOps | https://imgops.com/#b#`;
     function createScript(html){
         return escapeHTMLPolicy?escapeHTMLPolicy.createScript(html):html;
     }
-    function init(topObject,window,document,arrayFn,envir,storage,unsafeWindow){
+    async function init(topObject,window,document,arrayFn,envir,storage,unsafeWindow){
         // 默认设置，请到设置界面修改
         prefs={
             floatBar:{//浮动工具栏相关设置.
@@ -11991,7 +12040,7 @@ ImgOps | https://imgops.com/#b#`;
                     shift: false,
                     command: false,
                     type: "hold",
-                    closeAfterPreview: false,
+                    closeAfterPreview: true,
                     previewFollowMouse: true
                 }
             },
@@ -12001,6 +12050,11 @@ ImgOps | https://imgops.com/#b#`;
                 wheelZoom:{//滚轮缩放.
                     enabled:true,
                     pauseFirst:true,//需要暂停(单击暂停)后,才能缩放.(推荐,否则因为放大镜会跟着鼠标,如果放大镜过大,那么会影响滚动.)..
+                    scaleImage:true,
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                    meta: false,
                     range:[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1,1.1,1.2,1.3,1.4,1.5,1.7,1.9,2,2.5,3.0,4.0,5.0,6.0,7.0,8.0,9.0],//缩放的范围
                 },
             },
@@ -12106,6 +12160,7 @@ ImgOps | https://imgops.com/#b#`;
                     for (let i in lazyImgAttr) {
                         let attrName = lazyImgAttr[i];
                         let attrValue = this.getAttribute(attrName);
+                        if (/\bimagecover\.\w+$/i.test(attrValue)) continue;
                         if (attrValue) {
                             newsrc = attrValue;
                             break;
@@ -12365,9 +12420,47 @@ ImgOps | https://imgops.com/#b#`;
             };
         }();
 
+        const old_create = unsafeWindow.URL.createObjectURL;
+        const old_revoke = unsafeWindow.URL.revokeObjectURL;
+        unsafeWindow.URL.createObjectURL = storeAndCreate;
+        const dict = {};
+
+        function storeAndCreate(blob) {
+            const url = old_create(blob);
+            dict[url] = blob;
+            return url
+        }
+
+        function getBlob(url) {
+            return dict[url] || null;
+        }
+
+        function blobToDataURL(blob, cb) {
+            var a = new FileReader();
+            a.readAsDataURL(blob);
+            a.onload = function (e){
+                cb(e.target.result);
+            };
+            a.onerror = function (e){
+                cb(null);
+            }
+        }
+
+        async function getBase64FromBlobUrl(blobUrl) {
+            let blob = getBlob(blobUrl);
+            if (!blob) return "";
+            return new Promise(resolve => {
+                blobToDataURL(blob, base64 => {
+                    resolve(base64);
+                });
+            });
+        }
+
         var rulerEle = document.createElement("span");
-        rulerEle.style.visibility = "hidden";
-        rulerEle.style.whiteSpace = "nowrap";
+        if (rulerEle.style) {
+            rulerEle.style.visibility = "hidden";
+            rulerEle.style.whiteSpace = "nowrap";
+        }
         function visualLength(str,size,family) {
             rulerEle.style.fontSize = size || "inherit";
             rulerEle.style.fontFamily = family || "inherit";
@@ -13393,11 +13486,11 @@ ImgOps | https://imgops.com/#b#`;
                         }
                     }
                     if (self.lockMaxSize) {
-                        storage.setItem("lockMaxSize" + location.hostname, self.lockMaxSize);
-                        storage.setItem("curDefaultSize" + location.hostname, {h: sizeInputH.value, w: sizeInputW.value});
+                        storage.setListItem("maxSize", location.hostname, self.lockMaxSize);
+                        storage.setListItem("minSize", location.hostname, {h: sizeInputH.value, w: sizeInputW.value});
                     } else {
-                        storage.setItem("lockMaxSize" + location.hostname, "");
-                        storage.setItem("curDefaultSize" + location.hostname, "");
+                        storage.setListItem("maxSize", location.hostname, "");
+                        storage.setListItem("minSize", location.hostname, "");
                     }
                 };
 
@@ -13785,6 +13878,9 @@ ImgOps | https://imgops.com/#b#`;
                         collection.save();
                     },500);
                 },true);
+                eleMaps['head-command-drop-list-collect'].addEventListener('keydown',function(e){
+                    e.stopPropagation();
+                },true);
 
 
                 var slideShow={
@@ -13881,7 +13977,7 @@ ImgOps | https://imgops.com/#b#`;
                     let filterStr = prompt(i18n("urlFilterTip"), self.urlFilter || location.hostname) || "";
                     if (filterStr != self.urlFilter) {
                         self.urlFilter = filterStr;
-                        storage.setItem("urlFilter" + location.hostname, filterStr);
+                        storage.setListItem("urlFilter", location.hostname, filterStr);
                         if (self.urlFilter) {
                             urlFilterHeadItem.title = self.urlFilter;
                             urlFilterHeadItem.style.display = "inline-block";
@@ -13895,8 +13991,8 @@ ImgOps | https://imgops.com/#b#`;
 
                 this.urlFilter = "";
                 this.lockMaxSize = false;
-                var urlFilter = storage.getItem("urlFilter" + location.hostname) || false;
-                var lockMaxSize = storage.getItem("lockMaxSize" + location.hostname) || false;
+                var urlFilter = storage.getListItem("urlFilter", location.hostname) || false;
+                var lockMaxSize = storage.getListItem("maxSize", location.hostname) || false;
                 if (urlFilter) {
                     self.urlFilter = urlFilter;
                     urlFilterHeadItem.title = self.urlFilter;
@@ -13907,7 +14003,7 @@ ImgOps | https://imgops.com/#b#`;
                     headMaxLock.style.filter="brightness(5)";
                     headMaxLock.title=lockMaxSize.w+" x "+lockMaxSize.h;
                 }
-                self.curDefaultSize = storage.getItem("curDefaultSize" + location.hostname) || false;
+                self.curDefaultSize = storage.getListItem("minSize", location.hostname) || false;
 
                 //幻灯片播放下拉列表change事件的处理
                 eleMaps['head-command-drop-list-slide-show'].addEventListener('change',function(e){
@@ -13938,7 +14034,7 @@ ImgOps | https://imgops.com/#b#`;
                     self.switchThumbVisible();//切换图片类别显隐;
                 },true);
 
-                prefs.gallery.scrollEndAndLoad = !!storage.getItem("scrollEndAndLoad" + location.hostname);
+                prefs.gallery.scrollEndAndLoad = !!storage.getListItem("scrollEndAndLoad", location.hostname);
                 eleMaps['head-command-drop-list-others'].querySelector('input[data-command="scrollToEndAndReload"]').checked = prefs.gallery.scrollEndAndLoad;
                 var srcSplit,downloading=false;
                 //命令下拉列表的点击处理
@@ -14044,7 +14140,7 @@ ImgOps | https://imgops.com/#b#`;
                             }
 
                             prefs.gallery.scrollEndAndLoad = checkbox.checked;
-                            storage.setItem("scrollEndAndLoad" + location.hostname, checkbox.checked);
+                            storage.setListItem("scrollEndAndLoad", location.hostname, checkbox.checked);
                             break;
                         case 'fullScreen':
                             if (target.classList.contains('fullscreenbtn')) {
@@ -14395,7 +14491,7 @@ ImgOps | https://imgops.com/#b#`;
                     };
                     container.addEventListener('keyup',keyUpHandler,false);
 
-                },true);
+                });
 
 
                 var imgDraged;
@@ -14860,7 +14956,7 @@ ImgOps | https://imgops.com/#b#`;
                                     zip.file(imgName.replace(/\//g, "").replace(/\.webp$/, ".png"), blob);
                                 } else console.debug("error: "+imgSrc);
                                 downloaded++;
-                                self.showTips("Downloading "+downloaded+"/"+len, 100000);
+                                self.showTips("Downloading "+downloaded+"/"+len, 1000000);
                                 if(downloaded == len){
                                     self.showTips("Begin compress to ZIP...", 100000);
                                     zip.generateAsync({type:"blob"}, meta=>{self.showCompressProgress(meta)}).then(function(content){
@@ -14872,7 +14968,7 @@ ImgOps | https://imgops.com/#b#`;
                         }
                         if(/^data:/.test(imgSrc) || imgSrc.split("/")[2]==document.domain){
                             self.dataURLToCanvas(imgSrc, canvas=>{
-                                self.showTips("Downloading "+(downloaded+1)+"/"+len, 100000);
+                                self.showTips("Downloading "+(downloaded+1)+"/"+len, 1000000);
                                 if(!canvas){
                                     crosHandler(imgSrc);
                                     return;
@@ -14935,6 +15031,10 @@ ImgOps | https://imgops.com/#b#`;
                 sizeInputHSpan.innerHTML=createHTML("H: "+Math.floor(sizeInputH.value)+"px");
                 sizeInputW.title="min width: "+sizeInputW.value+"px";
                 sizeInputWSpan.innerHTML=createHTML("W: "+Math.floor(sizeInputW.value)+"px");
+                clearTimeout(this.saveDefaultSize);
+                this.saveDefaultSize = setTimeout(() => {
+                    storage.setListItem("minSize", location.hostname, {h: sizeInputH.value, w: sizeInputW.value});
+                }, 1000);
 
                 var self=this;
                 var viewmoreShow = this.eleMaps['sidebar-toggle'].style.visibility == 'hidden';
@@ -14952,14 +15052,16 @@ ImgOps | https://imgops.com/#b#`;
                             item.parentNode.style.display="";
                             if(spanMark)spanMark.style.display="";
                         }
-                        if(item.naturalHeight>maxSizeH)
-                            maxSizeH=item.naturalHeight;
-                        if(item.naturalHeight<minSizeH || minSizeH==0)
-                            minSizeH=item.naturalHeight;
-                        if(item.naturalWidth>maxSizeW)
-                            maxSizeW=item.naturalWidth;
-                        if(item.naturalWidth<minSizeW || minSizeW==0)
-                            minSizeW=item.naturalWidth;
+                        if (item.naturalHeight && item.naturalWidth) {
+                            if(item.naturalHeight>maxSizeH)
+                                maxSizeH=item.naturalHeight;
+                            if(item.naturalHeight<minSizeH || minSizeH==0)
+                                minSizeH=item.naturalHeight;
+                            if(item.naturalWidth>maxSizeW)
+                                maxSizeW=item.naturalWidth;
+                            if(item.naturalWidth<minSizeW || minSizeW==0)
+                                minSizeW=item.naturalWidth;
+                        }
                     });
                     sizeInputH.max=maxSizeH;
                     sizeInputH.min=minSizeH;
@@ -15015,11 +15117,11 @@ ImgOps | https://imgops.com/#b#`;
                     }
                     if(itemH>maxSizeH)
                         maxSizeH=itemH;
-                    if(itemH<minSizeH || minSizeH==0)
+                    if((itemH > 0 && itemH < minSizeH) || minSizeH==0)
                         minSizeH=itemH;
                     if(itemW>maxSizeW)
                         maxSizeW=itemW;
-                    if(itemW<minSizeW || minSizeW==0)
+                    if((itemW > 0 && itemW < minSizeW) || minSizeW==0)
                         minSizeW=itemW;
                 });
                 sizeInputH.max=maxSizeH;
@@ -15294,29 +15396,6 @@ ImgOps | https://imgops.com/#b#`;
                     this.addViewmoreItem(nodes);
                 }
             },
-            corsUrlToBlob:function (url, cb){
-                if(!url)return cb(null);
-                _GM_xmlhttpRequest({
-                    method: 'GET',
-                    url: url,
-                    responseType:'arraybuffer',
-                    timeout:20000,
-                    headers: {
-                        origin: location.origin,
-                        referer: location.href,
-                        accept: "*/*"
-                    },
-                    onload: function(d) {
-                        cb(d.response);
-                    },
-                    onerror: function(){
-                        cb(null);
-                    },
-                    ontimeout: function(){
-                        cb(null);
-                    }
-                });
-            },
             dataURLToCanvas:function (dataurl, cb){
                 if(!dataurl)return cb(null);
                 var canvas = document.createElement('CANVAS');
@@ -15334,19 +15413,9 @@ ImgOps | https://imgops.com/#b#`;
                 };
                 img.src = dataurl;
             },
-            blobToDataURL:function(blob, cb){
-                var a = new FileReader();
-                a.readAsDataURL(blob);
-                a.onload = function (e){
-                    cb(e.target.result);
-                };
-                a.onerror = function (e){
-                    cb(null);
-                }
-            },
             blobToCanvas: function (blob, cb){
                 var self=this;
-                this.blobToDataURL(blob, function (dataurl){
+                blobToDataURL(blob, function (dataurl){
                     self.dataURLToCanvas(dataurl, cb);
                 });
             },
@@ -15933,12 +16002,12 @@ ImgOps | https://imgops.com/#b#`;
                             if(item.xhr)spanMark.dataset.xhr=encodeURIComponent(JSON.stringify(item.xhr));
                             spanMark.dataset.description=encodeURIComponent(item.description || (item.img ? (item.img.title || item.img.alt || "") : ""));
                             spanMark.dataset.thumbSrc=item.imgSrc;
-                            let title = item.img ? (item.img.title || item.img.alt || "").slice(-50) : "";
+                            let title = item.img ? (item.img.title || item.img.alt || "").slice(-80) : "";
                             if (title) {
                                 if (title.indexOf('http') === 0 || title.indexOf('data') === 0) title = '';
                                 else title += '\n';
                             }
-                            spanMark.title = title + item.src.length > 150 ? item.src.slice(0, 110) + " ... " + item.src.slice(-30) : item.src;
+                            spanMark.title = title + (item.src.length > 150 ? item.src.slice(0, 110) + " ... " + item.src.slice(-30) : item.src);
                             spanMark.innerHTML=createHTML('<span class="pv-gallery-vertical-align-helper"></span>' +
                                 '<span class="pv-gallery-sidebar-thumb-loading" title="'+i18n("loading")+'......"></span>');
                         }catch(e){};
@@ -16148,6 +16217,12 @@ ImgOps | https://imgops.com/#b#`;
                 for(var i=0,ii=data.length;i<ii;i++){
                     data_i=data[i];
                     data_i_src=data_i.imgSrc;
+                    if (i + 1 < ii && data_i.img && data_i.img.nodeName != 'IMG' && data_i_src == data[i + 1].imgSrc) {
+                        data.splice(i, 1);
+                        i--;
+                        ii--;
+                        continue;
+                    }
                     if(dataSrcs.indexOf(data_i_src)!=-1){//已经存在
                         data.splice(i,1);//移除
                         i--;
@@ -16197,6 +16272,14 @@ ImgOps | https://imgops.com/#b#`;
                             origin=0;
                         }
                         img.style[support.cssTransform] = ' rotate('+ origin +'rad) ' + iTransform;
+                        break;
+                    case prefs.floatBar.keys.actual:
+                    case prefs.floatBar.keys.current:
+                        imgReady(this.src,{
+                            ready:function(){
+                                new ImgWindowC(this);
+                            },
+                        });
                         break;
                     case prefs.floatBar.keys.download:
                         downloadImg(this.img.src, this.selected.title, prefs.saveName);
@@ -16387,22 +16470,6 @@ ImgOps | https://imgops.com/#b#`;
                 if(!next)next=curPage.querySelector('[rel="next"]');
                 return {pre:pre,next:next};
             },
-            canonicalUri:function(src){
-                if (src.charAt(0) == "#") return location.href + src;
-                if (src.charAt(0) == "?") return location.href.replace(/^([^\?#]+).*/, "$1" + src);
-                var root_page = /^[^?#]*\//.exec(location.href)[0],
-                    base_path = location.pathname.replace(/\/[^\/]+\.[^\/]+$/, "/"),
-                    root_domain = /^\w+\:\/\/\/?[^\/]+/.exec(root_page)[0],
-                    absolute_regex = /^\w+\:\/\//;
-                src=src.replace("./", "");
-                if (/^\/\/\/?/.test(src)){
-                    src = location.protocol + src;
-                }
-                else if (!absolute_regex.test(src) && src.charAt(0) != "/"){
-                    src = (base_path || "") + src;
-                }
-                return (absolute_regex.test(src) ? src : ((src.charAt(0) == "/" ? root_domain : root_page) + src));
-            },
             completePages:[location.href],
             href:location.href,
             pageAllReady:false,
@@ -16458,7 +16525,7 @@ ImgOps | https://imgops.com/#b#`;
                 }else{
                     self.completePages.push(href);
                 }
-                self.href=self.canonicalUri(href);
+                self.href=canonicalUri(href);
                 _GM_xmlhttpRequest({
                     method: 'GET',
                     url: self.href,
@@ -16490,6 +16557,7 @@ ImgOps | https://imgops.com/#b#`;
                             return false;
                         });
                         function loadImg(img){
+                            img.onerror = null;
                             var result = findPic(img);
                             self.loadingImgNum++;
                             if (result.xhr) {
@@ -16736,9 +16804,9 @@ ImgOps | https://imgops.com/#b#`;
                 return stop;
             },
 
-            reload: function() {// 重新加载所有图片到库里面
+            reload: async function() {// 重新加载所有图片到库里面
                 // 函数在 LoadingAnimC 中
-                var data = this.getAllValidImgs();
+                var data = await this.getAllValidImgs();
                 // 设置当前选中的图片
                 data.target = {
                     src: this.selected.dataset.src
@@ -16748,19 +16816,19 @@ ImgOps | https://imgops.com/#b#`;
 
                 this.load(data, null, true);
             },
-            reloadNew: function() {// 加载新的图片到库里面
+            reloadNew: async function() {// 加载新的图片到库里面
                 var newer = true;
-                var data = this.getAllValidImgs(newer);
+                var data = await this.getAllValidImgs(newer);
                 if (data.length) {
                     this._appendThumbSpans(data);
                 }
             },
-            getAllValidImgs:function(newer){
+            getAllValidImgs:async function(newer){
                 var validImgs = [];
                 var container = document.querySelector('.pv-gallery-container'),
                     preloadContainer = document.querySelector('.pv-gallery-preloaded-img-container');
 
-                var bgReg=/.*url\(\s*["']?(.+?)["']?\s*\)([^'"]|$)/i;
+                var bgReg=/.*?url\(\s*["']?(.+?)["']?\s*\)([^'"]|$)/i;
                 var imgs=Array.from(getBody(document).querySelectorAll('*')).reduceRight((total, node) => {
                     if(/^img$/i.test(node.nodeName)){
                         total.push(node);
@@ -16781,37 +16849,98 @@ ImgOps | https://imgops.com/#b#`;
                                 if (!node.src) {
                                     node.src = node.toDataURL("image/png");
                                 }
-                                total.push(node);
                             } catch(e) {}
                         }
                         if (!node.src && node.dataset.src) {
                             node.src = node.dataset.src;
-                            delete node.dataset.src;
+                        }
+                        if (node.src) {
                             total.push(node);
                         }
-                    }else if(!node.className || !node.className.indexOf || node.className.indexOf("pv-")==-1){
+                    }
+                    if(!node.className || !node.className.indexOf || node.className.indexOf("pv-")==-1){
                         let prop = getComputedStyle(node).backgroundImage;
+                        let hasSrc = /^(audio|embed|iframe|img|input|script|source|track|video|svg|canvas)$/i.test(node.nodeName);
                         if (prop != "none") {
                             let match = bgReg.exec(prop);
                             if (match) {
-                                node.src=match[1];
-                                total.push(node);
+                                if (!hasSrc) {
+                                    let src = match[1].replace(/\\"/g, '"');
+                                    node.src = src;
+                                    total.push(node);
+                                    hasSrc = true;
+                                    prop = prop.replace(bgReg, "$2");
+                                    match = bgReg.exec(prop);
+                                }
+                                while (match) {
+                                    let src = match[1].replace(/\\"/g, '"');
+                                    node = document.createElement("img");
+                                    node.src = src;
+                                    total.push(node);
+                                    prop = prop.replace(bgReg, "$2");
+                                    match = bgReg.exec(prop);
+                                }
                             }
                         }
                         prop = getComputedStyle(node, '::before').backgroundImage;
                         if (prop != "none") {
                             let match = bgReg.exec(prop);
                             if (match) {
-                                node.src=match[1];
-                                total.push(node);
+                                if (!hasSrc) {
+                                    let src = match[1].replace(/\\"/g, '"');
+                                    node.src = src;
+                                    total.push(node);
+                                    hasSrc = true;
+                                    prop = prop.replace(bgReg, "$2");
+                                    match = bgReg.exec(prop);
+                                }
+                                while (match) {
+                                    let src = match[1].replace(/\\"/g, '"');
+                                    node = document.createElement("img");
+                                    node.src = src;
+                                    total.push(node);
+                                    prop = prop.replace(bgReg, "$2");
+                                    match = bgReg.exec(prop);
+                                }
                             }
                         }
                         prop = getComputedStyle(node, '::after').backgroundImage;
                         if (prop != "none") {
                             let match = bgReg.exec(prop);
                             if (match) {
-                                node.src=match[1];
-                                total.push(node);
+                                if (!hasSrc) {
+                                    let src = match[1].replace(/\\"/g, '"');
+                                    node.src = src;
+                                    total.push(node);
+                                    hasSrc = true;
+                                    prop = prop.replace(bgReg, "$2");
+                                    match = bgReg.exec(prop);
+                                }
+                                while (match) {
+                                    let src = match[1].replace(/\\"/g, '"');
+                                    node = document.createElement("img");
+                                    node.src = src;
+                                    total.push(node);
+                                    prop = prop.replace(bgReg, "$2");
+                                    match = bgReg.exec(prop);
+                                }
+                            }
+                        }
+                        let iconStyle = getComputedStyle(node, '::before');
+                        prop = iconStyle.content;
+                        if (!prop || prop === "none") {
+                            iconStyle = getComputedStyle(node, '::after');
+                            prop = iconStyle.content;
+                        }
+                        if (prop && prop !== "none") {
+                            prop = prop.replace(/[ '"]/g, "");
+                            if (prop && prop.length == 1) {
+                                let src = icon2Base64(node, prop, iconStyle);
+                                if (src != "data:,") {
+                                    node = document.createElement("img");
+                                    node.src = src;
+                                    total.push(node);
+                                }
                             }
                         }
                     }
@@ -16844,24 +16973,41 @@ ImgOps | https://imgops.com/#b#`;
                     return !(container.contains(img) || (preloadContainer&&preloadContainer.contains(img)));
                 });
 
+                await sleep(1);
                 // 已经在图库里面的
                 var self = this;
-                imgs.forEach(function(img) {
+                for (const img of imgs) {
                     let isImg = /^IMG$/i.test(img.nodeName);
                     if (isImg) {
                         pretreatment(img);
                     }
-                    if(!img.src || (isImg && img.getAttribute && !img.getAttribute("src"))) return;
-                    if (newer && self._dataCache[img.src]) return;
+                    if(!img.src || (isImg && img.getAttribute && !img.getAttribute("src"))) continue;
+                    if (newer && self._dataCache[img.src]) continue;
 
                     var result = findPic(img);
                     if (result) {
+                        if (result.src === 'data:,') continue;
+
+                        if (result.imgSrc.indexOf('blob:') === 0){
+                            if (result.src == result.imgSrc) {
+                                result.imgSrc = await getBase64FromBlobUrl(result.imgSrc);
+                                result.src = result.imgSrc;
+                                result.srcs = [result.imgSrc];
+                            } else {
+                                result.imgSrc = await getBase64FromBlobUrl(result.imgSrc);
+                                result.srcs = [result.imgSrc];
+                            }
+                        }
+                        if (result.sizeH == 0 && result.sizeW == 0) {
+                            result.sizeH = img.naturalHeight;
+                            result.sizeW = img.naturalWidth;
+                        }
                         validImgs.push(result);
                         self.data.push(result);
                     }
 
                     self._dataCache[img.src] = true;
-                });
+                }
 
                 return validImgs;
             },
@@ -17006,8 +17152,8 @@ ImgOps | https://imgops.com/#b#`;
                     left: 0;\
                     width: 100%;\
                     height: 100%;\
-                    min-width:none;\
-                    min-height:none;\
+                    min-width:unset;\
+                    min-height:unset;\
                     padding: 0;\
                     margin: 0;\
                     border: none;\
@@ -17081,7 +17227,7 @@ ImgOps | https://imgops.com/#b#`;
                      column-count: 2;\
                      -moz-column-count: 2;\
                      -webkit-column-count: 2;\
-                     padding-top: 300px;\
+                     padding-top: 200px;\
                      }\
                      .pv-gallery-sidebar-viewmore.showmore{\
                      transform: scale(3.5);\
@@ -17098,13 +17244,27 @@ ImgOps | https://imgops.com/#b#`;
                     }\
                     @media only screen and (min-width: 800px) {\
                      .pv-gallery-maximize-container{\
-                     column-count: 5;\
-                     -moz-column-count: 5;\
-                     -webkit-column-count: 5;\
+                     column-count: 3;\
+                     -moz-column-count: 3;\
+                     -webkit-column-count: 3;\
                      padding-top: 30px;\
                      }\
                      .pv-gallery-maximize-container span>p{\
                      opacity: 0;\
+                     }\
+                    }\
+                    @media only screen and (min-width: 1000px) {\
+                     .pv-gallery-maximize-container{\
+                     column-count: 4;\
+                     -moz-column-count: 4;\
+                     -webkit-column-count: 4;\
+                     }\
+                    }\
+                    @media only screen and (min-width: 1500px) {\
+                     .pv-gallery-maximize-container{\
+                     column-count: 5;\
+                     -moz-column-count: 5;\
+                     -webkit-column-count: 5;\
                      }\
                     }\
                     span.pv-gallery-tipsWords{\
@@ -17574,6 +17734,7 @@ ImgOps | https://imgops.com/#b#`;
                     border:5px solid #313131;\
                     margin:1px;\
                     opacity:0.3;\
+                    box-sizing: content-box;\
                     background-color: #282828cc;\
                     '+
                     (prefs.gallery.transition ? ('\
@@ -17736,7 +17897,7 @@ ImgOps | https://imgops.com/#b#`;
                     border: 5px solid #ff0000;\
                     }\
                     .pv-gallery-maximize-container img{\
-                    width:100%;\
+                    max-width: 100%;\
                     transition: transform .3s ease 0s;\
                     transform: scale3d(1, 1, 1);\
                     cursor: zoom-in;\
@@ -18462,11 +18623,11 @@ ImgOps | https://imgops.com/#b#`;
                 this._clickOut=this.clickOut.bind(this);
                 this._keydown=this.keydown.bind(this);
 
-                if(prefs.magnifier.wheelZoom.enabled){
+                if (prefs.magnifier.wheelZoom.enabled || typeof prefs.magnifier.wheelZoom.scaleImage !== false) {
                     this.zoomLevel=1;
                     this.defaultDia=diameter;
                     addWheelEvent(container,this._zoom,false);
-                };
+                }
 
                 container.addEventListener('mouseover',this._focus,false);
                 container.addEventListener('mouseout',this._blur,false);
@@ -18568,8 +18729,32 @@ ImgOps | https://imgops.com/#b#`;
                 return level;
             },
             zoom:function(e){
+                if ((e.metaKey != !!prefs.magnifier.wheelZoom.meta) ||
+                   (e.altKey != !!prefs.magnifier.wheelZoom.alt) ||
+                   (e.ctrlKey != !!prefs.magnifier.wheelZoom.ctrl) ||
+                   (e.shiftKey != !!prefs.magnifier.wheelZoom.shift)) {
+                    return;
+                }
                 if(e.deltaY===0)return;//非Y轴的滚动
-                if(prefs.magnifier.wheelZoom.pauseFirst && !this.paused)return;
+                var ms=this.magnifier.style;
+                if(prefs.magnifier.wheelZoom.pauseFirst && !this.paused){
+                    if (typeof prefs.magnifier.wheelZoom.scaleImage !== false) {
+                        let curScale = ms.transform.match(/[\d\.]+/);
+                        if (curScale) {
+                            curScale = parseFloat(curScale[0]);
+                        } else curScale = 1;
+                        if (e.deltaY < 0) {
+                            curScale += 0.1;
+                        } else {
+                            curScale -= 0.1;
+                        }
+                        if (curScale < 0.5) curScale = 0.5;
+                        ms.transform = `scale(${curScale})`;
+                        e.preventDefault();
+                    }
+                    return;
+                }
+                if(!prefs.magnifier.wheelZoom.enabled)return;
                 e.preventDefault();
                 if(e.deltaY < 0){//向上滚，放大；
                     if(this.diameter >= this.maxDia)return;
@@ -18591,7 +18776,6 @@ ImgOps | https://imgops.com/#b#`;
                 var bRadius=this.radius;
                 this.radius=radius;
                 this.setMouseRange();
-                var ms=this.magnifier.style;
                 ms.width=diameter+'px';
                 ms.height=diameter+'px';
                 ms.borderRadius=radius+1 + 'px';
@@ -18642,13 +18826,14 @@ ImgOps | https://imgops.com/#b#`;
         };
 
         //图片窗口
-        function ImgWindowC(img, data, actual, initPos){
+        function ImgWindowC(img, data, actual, initPos, preview){
             this.loaded = false;
             this.img = img;
             this.actual = !!actual;
             this.src = data?data.src:img.src;
             this.data = data;
             this.initPos = initPos || false;
+            this.preview = !!preview;
 
             this.init();
             if(data){
@@ -18669,13 +18854,15 @@ ImgOps | https://imgops.com/#b#`;
                 if(uniqueImgWin && !uniqueImgWin.removed){
                     uniqueImgWin.remove();
                 }
-                //图片是否已经被打开
-                if(ImgWindowC.all.find(function(iwin){
-                    if(iwin.src==self.src){
-                        iwin.firstOpen();
-                        return true;
-                    };
-                }))return;
+                if (!this.preview) {
+                    //图片是否已经被打开
+                    if(ImgWindowC.all.find(function(iwin){
+                        if(iwin.src==self.src){
+                            iwin.firstOpen();
+                            return true;
+                        };
+                    }))return;
+                }
 
                 this.addStyle();
 
@@ -18798,12 +18985,12 @@ ImgOps | https://imgops.com/#b#`;
                 var maxButton=container.querySelector('.pv-pic-window-max');
                 maxButton.style.cssText='top: -24px;right: 46px;';
                 this.maxButton=maxButton;
-                maxButton.addEventListener('click',function(e){
+                maxButton.addEventListener('click',async function(e){
                     if(!gallery){
                         gallery=new GalleryC();
                         gallery.data=[];
                     }
-                    var allData=gallery.getAllValidImgs();
+                    var allData=await gallery.getAllValidImgs();
                     if(allData.length<1)return;
                     allData.target={src:img.src};
                     gallery.data=allData;
@@ -19062,7 +19249,9 @@ ImgOps | https://imgops.com/#b#`;
                 };
 
 
-                ImgWindowC.all.push(this);
+                if (!this.preview) {
+                    ImgWindowC.all.push(this);
+                }
 
                 this._blur=this.blur.bind(this);
                 this._focusedKeydown=this.focusedKeydown.bind(this);
@@ -19202,7 +19391,7 @@ ImgOps | https://imgops.com/#b#`;
                 this.preButton.style.display = "none";
                 this.nextButton.style.display = "none";
             },
-            switchImage:function(fw){
+            switchImage:async function(fw){
                 if (!gallery) {
                     gallery = new GalleryC();
                     gallery.data = [];
@@ -19210,7 +19399,7 @@ ImgOps | https://imgops.com/#b#`;
                 if (gallery.shown || gallery.minimized) {
                     return;
                 }
-                var allData = gallery.getAllValidImgs();
+                var allData = await gallery.getAllValidImgs();
                 if (allData.length <= 1) return;
                 for (let i = 0; i < allData.length; i++) {
                     let imgData = allData[i];
@@ -19468,6 +19657,11 @@ ImgOps | https://imgops.com/#b#`;
                     cursor: pointer;\
                     pointer-events: none;\
                     }\
+                    .pv-pic-window-scroll>span.pv-pic-window-pre,\
+                    .pv-pic-window-scroll>span.pv-pic-window-next{\
+                    position: fixed;\
+                    pointer-events: all;\
+                    }\
                     span.pv-pic-window-pre {\
                     left: 8px;\
                     background-image: url("'+prefs.icons.arrowLeft+'");\
@@ -19589,17 +19783,16 @@ ImgOps | https://imgops.com/#b#`;
                       100% { opacity: 0 }\
                     }\
                     .pv-pic-window-scroll {\
-                    max-height: 100vh;\
+                    max-height: calc(100vh - 26px);\
                     max-width: 100vw;\
-                    overflow: scroll;\
+                    overflow-y: scroll;\
+                    overflow-x: hidden;\
                     }\
                     .pv-pic-window-scroll>.pv-pic-window-scrollSign {\
                     display: block;\
                     }\
                     .pv-pic-window-scroll>.pv-pic-window-close,\
                     .pv-pic-window-scroll>.pv-pic-window-max,\
-                    .pv-pic-window-scroll>.pv-pic-window-pre,\
-                    .pv-pic-window-scroll>.pv-pic-window-next,\
                     .pv-pic-window-scroll>.pv-pic-search-state {\
                     display: none;\
                     }\
@@ -19826,7 +20019,7 @@ ImgOps | https://imgops.com/#b#`;
                     w:parseFloat(imgWindowCS.width),
                 };
                 this.isLongImg=rectSize.h > wSize.h && rectSize.h/rectSize.w > 2.5;
-                if(prefs.imgWindow.suitLongImg && this.isLongImg){
+                if(prefs.imgWindow.suitLongImg && this.isLongImg && !this.preview){
                     this.center(rectSize.w <= wSize.w,false);
                     this.imgWindow.classList.add("pv-pic-window-scroll");
                 }else if(prefs.imgWindow.fitToScreen){
@@ -19911,116 +20104,116 @@ ImgOps | https://imgops.com/#b#`;
                 // 保持注释在图片里面
                 // keepSI(this.descriptionSpan,['bottom', 'left'],[-40, 10]);
             },
-            followPos:function(posX, posY){
-                if(this.removed)return;
-                if(!prefs.floatBar.globalkeys.previewFollowMouse)return;
-                var imgWindow=this.imgWindow;
-                if(!imgWindow)return;
+            followPos: function(posX, posY) {
+                if (this.removed) return;
+                if (!prefs.floatBar.globalkeys.previewFollowMouse) return;
+                var imgWindow = this.imgWindow;
+                if (!imgWindow) return;
                 this.followPosX = posX;
                 this.followPosY = posY;
-                if(!this.following){
+                if (!this.following) {
                     clearTimeout(this.followPosTimer);
-                    this.followPosTimer=setTimeout(() => {
-                        this.following=true;
+                    this.followPosTimer = setTimeout(() => {
+                        this.following = true;
                         imgWindow.classList.add("pv-pic-window-transition-all");
                         this.followPos(this.followPosX, this.followPosY);
                     }, 50);
                     return;
                 }
-                this.following=false;
-                var wSize=getWindowSize();
+                this.following = false;
+                var wSize = getWindowSize();
                 this.zoom(1);
-                if(prefs.imgWindow.fitToScreen && !imgWindow.classList.contains("pv-pic-window-scroll")){
-                    var imgWindowCS=unsafeWindow.getComputedStyle(imgWindow);
-                    var rectSize={
-                        h:parseFloat(imgWindowCS.height),
-                        w:parseFloat(imgWindowCS.width),
+                if (prefs.imgWindow.fitToScreen && !imgWindow.classList.contains("pv-pic-window-scroll")) {
+                    var imgWindowCS = unsafeWindow.getComputedStyle(imgWindow);
+                    var rectSize = {
+                        h: parseFloat(imgWindowCS.height),
+                        w: parseFloat(imgWindowCS.width),
                     };
 
                     var size;
-                    if(prefs.imgWindow.fitToScreenSmall || (rectSize.w - wSize.w>0 || rectSize.h - wSize.h>0)){
-                        if(rectSize.w/rectSize.h > wSize.w/wSize.h){
-                            size={
-                                w:wSize.w,
-                                h:wSize.w / (rectSize.w/rectSize.h),
+                    if (prefs.imgWindow.fitToScreenSmall || (rectSize.w - wSize.w > 0 || rectSize.h - wSize.h > 0)) {
+                        if (rectSize.w / rectSize.h > wSize.w / wSize.h) {
+                            size = {
+                                w: wSize.w,
+                                h: wSize.w / (rectSize.w / rectSize.h),
                             };
-                        }else{
-                            size={
-                                h:wSize.h,
-                                w:wSize.h * (rectSize.w/rectSize.h),
+                        } else {
+                            size = {
+                                h: wSize.h,
+                                w: wSize.h * (rectSize.w / rectSize.h),
                             }
                         };
 
-                        this.zoom(this.getRotatedImgCliSize(size).w/this.imgNaturalSize.w);
+                        this.zoom(this.getRotatedImgCliSize(size).w / this.imgNaturalSize.w);
                     }
                 }
 
-                var scrolled=prefs.imgWindow.fixed ? {x:0, y:0} : getScrolled();
+                var scrolled = prefs.imgWindow.fixed ? {x: 0, y: 0} : getScrolled();
                 var maxWidth, maxHeight, left, top;
-                var self=this;
-                function resizeWithLimit(){
-                    if(imgWindow.offsetWidth>maxWidth || imgWindow.offsetHeight>maxHeight){
+                var self = this;
+                function resizeWithLimit() {
+                    if (imgWindow.offsetWidth > maxWidth || imgWindow.offsetHeight > maxHeight) {
                         var size;
-                        if(imgWindow.offsetWidth/imgWindow.offsetHeight > maxWidth/maxHeight){
-                            size={
-                                w:maxWidth,
-                                h:maxWidth / (imgWindow.offsetWidth/imgWindow.offsetHeight),
+                        if (imgWindow.offsetWidth / imgWindow.offsetHeight > maxWidth / maxHeight) {
+                            size = {
+                                w: maxWidth,
+                                h: maxWidth / (imgWindow.offsetWidth / imgWindow.offsetHeight),
                             };
-                        }else{
-                            size={
-                                h:maxHeight,
-                                w:maxHeight * (imgWindow.offsetWidth/imgWindow.offsetHeight),
+                        } else {
+                            size = {
+                                h: maxHeight,
+                                w: maxHeight * (imgWindow.offsetWidth / imgWindow.offsetHeight),
                             }
                         };
 
-                        self.zoom(self.getRotatedImgCliSize(size).w/self.imgNaturalSize.w);
+                        self.zoom(self.getRotatedImgCliSize(size).w / self.imgNaturalSize.w);
                     }
                 }
-                let padding = 50;
-                if(imgWindow.offsetWidth/imgWindow.offsetHeight>wSize.w/wSize.h){
+                let padding1 = Math.min(250, wSize.h>>2, wSize.w>>2), padding2 = 50;//内外侧间距
+                if (imgWindow.offsetWidth / imgWindow.offsetHeight > wSize.w / wSize.h) {
                     //宽条，上下半屏
-                    maxWidth = wSize.w;
-                    if(posY > wSize.h / 2){
+                    maxWidth = wSize.w - 56;
+                    if (posY > wSize.h / 2) {
                         //上
-                        maxHeight=posY-padding*2;
+                        maxHeight = posY - padding1 - padding2;
                         resizeWithLimit();
-                        imgWindow.style.top=posY - imgWindow.offsetHeight - padding + scrolled.y +'px';
-                    }else{
+                        imgWindow.style.top = posY - imgWindow.offsetHeight - padding1 + scrolled.y + 'px';
+                    } else {
                         //下
-                        maxHeight=wSize.h-posY-padding*2;
+                        maxHeight = wSize.h - posY - padding1 - padding2;
                         resizeWithLimit();
-                        imgWindow.style.top=posY + padding + scrolled.y +'px';
+                        imgWindow.style.top = posY + padding1 + scrolled.y + 'px';
                     }
-                    let left=(wSize.w - imgWindow.offsetWidth) / 2;
-                    let maxLeft=posX+padding*2;
-                    if(left>maxLeft)left=maxLeft;
+                    let left = (wSize.w - imgWindow.offsetWidth) / 2;
+                    let maxLeft = posX + padding1;
+                    if (left > maxLeft) left = maxLeft;
                     else {
-                        let minLeft=posX-imgWindow.offsetWidth-padding*2;
-                        if(left<minLeft)left=minLeft;
+                        let minLeft = posX - imgWindow.offsetWidth - padding1;
+                        if (left < minLeft) left = minLeft;
                     }
-                    imgWindow.style.left=left + scrolled.x +'px';
-                }else{
+                    imgWindow.style.left = left + scrolled.x + 'px';
+                } else {
                     //窄条，左右半屏
-                    maxHeight = wSize.h;
-                    if(posX > wSize.w / 2){
+                    maxHeight = wSize.h - 56;
+                    if (posX > wSize.w / 2) {
                         //左
-                        maxWidth=posX-padding*2;
+                        maxWidth = posX - padding1 - padding2;
                         resizeWithLimit();
-                        imgWindow.style.left=posX - imgWindow.offsetWidth - padding + scrolled.x +'px';
-                    }else{
+                        imgWindow.style.left = posX - imgWindow.offsetWidth - padding1 + scrolled.x + 'px';
+                    } else {
                         //右
-                        maxWidth=wSize.w-posX-padding*2;
+                        maxWidth = wSize.w - posX - padding1 - padding2;
                         resizeWithLimit();
-                        imgWindow.style.left=posX + padding + scrolled.x +'px';
+                        imgWindow.style.left = posX + padding1 + scrolled.x + 'px';
                     }
-                    let top=(wSize.h - imgWindow.offsetHeight) / 2;
-                    let maxTop=posY+padding*2;
-                    if(top>maxTop)top=maxTop;
+                    let top = (wSize.h - imgWindow.offsetHeight) / 2;
+                    let maxTop = posY + padding1;
+                    if (top > maxTop) top = maxTop;
                     else {
-                        let minTop=posY-imgWindow.offsetHeight-padding*2;
-                        if(top<minTop)top=minTop;
+                        let minTop = posY - imgWindow.offsetHeight - padding1;
+                        if (top < minTop) top = minTop;
                     }
-                    imgWindow.style.top=top + scrolled.y +'px';
+                    imgWindow.style.top = top + scrolled.y + 'px';
                 }
             },
             fitToScreen:function(){
@@ -20061,7 +20254,7 @@ ImgOps | https://imgops.com/#b#`;
                 var wSize=getWindowSize();
                 var scrolled=prefs.imgWindow.fixed ? {x:0, y:0} : getScrolled();
                 if(horizontal)imgWindow.style.left = (wSize.w - imgWindow.offsetWidth)/2 + scrolled.x +'px';
-                if(vertical)imgWindow.style.top = (wSize.h - imgWindow.offsetHeight)/2 + scrolled.y + (prefs.imgWindow.suitLongImg && this.isLongImg ? 13 : 0) +'px';
+                if(vertical)imgWindow.style.top = (wSize.h - imgWindow.offsetHeight)/2 + scrolled.y +'px';
             },
 
 
@@ -20688,7 +20881,7 @@ ImgOps | https://imgops.com/#b#`;
                     };
                 };
             },
-            focusedKeydown:function(e){
+            focusedKeydown:async function(e){
                 var keyCode=e.keyCode;
                 if (this.data && this.data.img && e.key.toLowerCase() == prefs.floatBar.keys.download) {
                     downloadImg(this.img.src, (this.data.img.title || this.data.img.alt), prefs.saveName);
@@ -20713,7 +20906,7 @@ ImgOps | https://imgops.com/#b#`;
                         gallery = new GalleryC();
                         gallery.data = [];
                     }
-                    var allData = gallery.getAllValidImgs();
+                    var allData = await gallery.getAllValidImgs();
                     if (allData.length < 1) return;
                     allData.target = {src: this.img.src};
                     gallery.data = allData;
@@ -20840,7 +21033,7 @@ ImgOps | https://imgops.com/#b#`;
                         } else this.imgWindow.classList.add("pv-pic-window-scroll");
                         //this.center(true , true);
                         if(!inScroll){
-                            imgWindow.style.top= (wSize.h - imgWindow.offsetHeight)/2 + scrolled.y + 13 +'px';
+                            imgWindow.style.top= (wSize.h - imgWindow.offsetHeight)/2 + scrolled.y +'px';
                             var scrollTop=parseFloat(imgWindow.style.top)-origTop;
                             if(this.imgWindow.scrollTop)this.imgWindow.scrollTop = scrollTop;
                             else if(this.imgWindow.pageYOffset)this.imgWindow.pageYOffset = scrollTop;
@@ -21075,8 +21268,10 @@ ImgOps | https://imgops.com/#b#`;
                     self.imgWindow.parentNode.removeChild(self.imgWindow);
                 },300);
 
-                var index=ImgWindowC.all.indexOf(this);
-                ImgWindowC.all.splice(index,1);
+                if (!this.preview) {
+                    var index=ImgWindowC.all.indexOf(this);
+                    ImgWindowC.all.splice(index,1);
+                }
                 var removeEvent=document.createEvent('CustomEvent');
                 removeEvent.initCustomEvent('pv-removeImgWindow',false,false);
                 this.imgWindow.dispatchEvent(removeEvent);
@@ -21328,7 +21523,7 @@ ImgOps | https://imgops.com/#b#`;
                 self.imgReady = imgReady(img, opts);
             },
 
-            load:function(img,e){
+            load:async function(img,e){
                 this.remove();
                 this.img=img;
                 var buttonType=this.buttonType;
@@ -21338,7 +21533,7 @@ ImgOps | https://imgops.com/#b#`;
                         gallery=new GalleryC();
                         gallery.data=[];
                     }
-                    var allData=gallery.getAllValidImgs();
+                    var allData=await gallery.getAllValidImgs();
                     allData.target=this.data;
                     this.data=allData;
                 };
@@ -21409,7 +21604,7 @@ ImgOps | https://imgops.com/#b#`;
                         }
                         if(!uniqueImgWin || uniqueImgWin.removed){
                             this.data.src=this.img.src;
-                            uniqueImgWin = new ImgWindowC(this.img, this.data);
+                            uniqueImgWin = new ImgWindowC(this.img, this.data, null, null, true);
                             //uniqueImgWin.imgWindow.classList.add("pv-pic-window-transition-all");
                         }
                         uniqueImgWin.blur({target:this.data.img});
@@ -21419,6 +21614,7 @@ ImgOps | https://imgops.com/#b#`;
                                 uniqueImgWin.imgWindow.style.opacity = 0;
                             }else{
                                 if (prefs.floatBar.globalkeys.previewFollowMouse) {
+                                    uniqueImgWin.following=true;
                                     uniqueImgWin.followPos(uniqueImgWinInitX, uniqueImgWinInitY);
                                 } else {
                                     uniqueImgWin.center(true,true);
@@ -21452,7 +21648,7 @@ ImgOps | https://imgops.com/#b#`;
                         _GM_setClipboard(this.data.src || this.data.imgSrc);
                         break;
                     case "open":
-                        _GM_openInTab(this.data.src || this.data.imgSrc, {active:true});
+                        _GM_openInTab(this.data.src || this.data.imgSrc, {active:false});
                         break;
                     case "copyImg":
                         copyData(this.data.src || this.data.imgSrc);
@@ -21584,7 +21780,7 @@ ImgOps | https://imgops.com/#b#`;
                     background-image: initial;\
                     top: 0px;\
                     left: 0px;\
-                    z-index:9999999998;\
+                    z-index:2147483640;\
                     padding: 5px;\
                     margin: 0;\
                     border: none;\
@@ -21660,7 +21856,7 @@ ImgOps | https://imgops.com/#b#`;
 
                 //读取中的图片,不显示浮动栏,调整读取图标的位置.
                 if(LoadingAnimC.all.find(function(item,index,array){
-                    if(data.img==item.data.img){
+                    if(data.src==item.data.src){
                         return true;
                     };
                 }))return false;
@@ -21668,7 +21864,7 @@ ImgOps | https://imgops.com/#b#`;
 
                 //被放大镜盯上的图片,不要显示浮动栏.
                 if(MagnifierC.all.find(function(item,index,array){
-                    if(data.img==item.data.img){
+                    if(data.src==item.data.src){
                         return true;
                     };
                 }))return false;
@@ -21691,9 +21887,11 @@ ImgOps | https://imgops.com/#b#`;
                 },150);
 
                 clearTimeout(this.showTimer);
-                if(prefs.floatBar.position=="hide"){
-                    self.data=data;
-                    self.show();
+                self.data=data;
+                if (data.hide) {
+                    this.show();
+                    this.floatBar.style.display = 'none';
+                    this.floatBar.style.opacity = 0;
                     return false;
                 }
                 if(!this.shown || self.data.img!=data.img){
@@ -21701,7 +21899,6 @@ ImgOps | https://imgops.com/#b#`;
                     this.floatBar.style.opacity=0.01;
                 }
                 this.showTimer=setTimeout(function(){
-                    self.data=data;
                     self.show();
                 },prefs.floatBar.showDelay);
                 return true;
@@ -21729,25 +21926,28 @@ ImgOps | https://imgops.com/#b#`;
                     //this.buttons['current'].style.removeProperty('display');
                 }
             },
-            setPosition:function(){
+            setPosition: function() {
                 //如果图片被删除了，或者隐藏了。
-                if(this.data.img.offsetWidth==0){
+                if (this.data.img.offsetWidth == 0) {
                     return true;
-                };
-                var targetPosi=getContentClientRect(this.data.img);
-                var pa=this.data.img.parentNode;
-                if (this.data.img.offsetTop && pa && pa.scrollHeight > 20 && pa.scrollWidth > 20) {
+                }
+                var targetPosi = getContentClientRect(this.data.img);
+                var pa = this.data.img.parentNode;
+                if (pa && pa.scrollHeight > 20 && pa.scrollWidth > 20) {
                     var paPosi=getContentClientRect(pa);
                     if (paPosi.width > 20 && paPosi.height > 20) {
-                        if (paPosi.width < targetPosi.width) {
-                            targetPosi.left = paPosi.left;
+                        if (this.data.img.offsetTop != 0) {
+                            if (paPosi.height < targetPosi.height) {
+                                targetPosi.top = paPosi.top;
+                            }
                         }
-                        if (paPosi.height < targetPosi.height) {
-                            targetPosi.top = paPosi.top;
+                        if (this.data.img.offsetLeft != 0) {
+                            if (paPosi.width < targetPosi.width) {
+                                targetPosi.left = paPosi.left;
+                            }
                         }
                     }
                 }
-                var bodyPosi=document.documentElement.getBoundingClientRect();
                 var windowSize=getWindowSize();
                 var img=this.data.img;
 
@@ -21756,17 +21956,34 @@ ImgOps | https://imgops.com/#b#`;
                 var offsetX=prefs.floatBar.offset.x;
                 var offsetY=prefs.floatBar.offset.y;
 
+                let body = getBody(document);
+                let offsetParent, bodyPosi;
+                if (unsafeWindow.getComputedStyle(body).position === "static") {
+                    offsetParent = document.documentElement;
+                    bodyPosi = {
+                        top: 0,
+                        bottom: windowSize.h,
+                        left: 0,
+                        right: windowSize.w
+                    };
+                } else {
+                    offsetParent = body;
+                    bodyPosi = offsetParent.getBoundingClientRect();
+                }
 
-                var scrolled=getScrolled();
-                targetPosi.top -= bodyPosi.top + scrolled.y - (parseInt(unsafeWindow.getComputedStyle(document.documentElement).marginTop) || 0);
-                targetPosi.left -= bodyPosi.left + scrolled.x;
+
+                var scrolled=getScrolled(offsetParent);
+                targetPosi.top = targetPosi.top - bodyPosi.top + scrolled.y;
+                targetPosi.left = targetPosi.left - bodyPosi.left + scrolled.x;
+                targetPosi.bottom = bodyPosi.bottom - targetPosi.bottom - scrolled.y;
+                targetPosi.right = bodyPosi.right - targetPosi.right - scrolled.x;
 
                 var fbs = this.floatBar.style;
                 var setPosition = {
                     top:function() {
-                        var top = targetPosi.top + scrolled.y;
+                        var top = targetPosi.top;
                         if (targetPosi.top + offsetY < 10) {
-                            top = scrolled.y;
+                            top += 10;
                             offsetY = 0;
                         } else {
                             if (prefs.floatBar.stayOut) {
@@ -21776,15 +21993,15 @@ ImgOps | https://imgops.com/#b#`;
                             }
                             if (targetPosi.height <= 50) top -= 10;
                         }
+                        fbs.bottom = 'unset';
                         fbs.top = top + 'px';
                     },
                     right:function() {
-                        var right = windowSize.w - targetPosi.right;
+                        var right = targetPosi.right;
                         if (right < offsetX) {
-                            right = -scrolled.x;
+                            right += 10;
                             offsetX = 0;
                         } else {
-                            right -= scrolled.x;
                             if (prefs.floatBar.stayOut) {
                                 right = right - offsetX - prefs.floatBar.stayOutOffsetX;
                             } else {
@@ -21792,15 +22009,15 @@ ImgOps | https://imgops.com/#b#`;
                             }
                             if (targetPosi.width <= 50) right += 10;
                         }
+                        fbs.left = 'unset';
                         fbs.right = right + 'px';
                     },
                     bottom:function() {
-                        var bottom = windowSize.h - targetPosi.bottom;
+                        var bottom = targetPosi.bottom;
                         if (bottom <= offsetY) {
-                            bottom = -scrolled.y;
+                            bottom += 10;
                             offsetY = 0;
                         } else {
-                            bottom -= scrolled.y;
                             if (prefs.floatBar.stayOut) {
                                 bottom = bottom - offsetY - 40 - prefs.floatBar.stayOutOffsetY;
                             } else {
@@ -21808,12 +22025,13 @@ ImgOps | https://imgops.com/#b#`;
                             }
                             if (targetPosi.height <= 50) bottom += 10;
                         }
+                        fbs.top = 'unset';
                         fbs.bottom = bottom + 'px';
                     },
                     left:function() {
-                        var left = targetPosi.left + scrolled.x;
+                        var left = targetPosi.left;
                         if (targetPosi.left + offsetX < 0) {
-                            left = scrolled.x;
+                            left += 10;
                             offsetX = 0;
                         } else {
                             if (prefs.floatBar.stayOut) {
@@ -21823,21 +22041,20 @@ ImgOps | https://imgops.com/#b#`;
                             }
                             if (targetPosi.width <= 50) left -= 10;
                         }
+                        fbs.right = 'unset';
                         fbs.left = left + 'px';
                     },
                     center:function() {
-                        var left = targetPosi.left + scrolled.x + offsetX;
+                        var left = targetPosi.left + offsetX;
                         fbs.left = left + targetPosi.width / 2 + 'px';
                     },
                     hide:function(){
-                        var top=targetPosi.top + scrolled.y;
+                        var top=targetPosi.top;
                         if(targetPosi.top + offsetY < 0){
-                            top=scrolled.y;
                             offsetY=0;
                         }
-                        var left=targetPosi.left + scrolled.x;
+                        var left=targetPosi.left;
                         if(targetPosi.left + offsetX < 0){
-                            left=scrolled.x;
                             offsetX=0;
                         }
                         if(prefs.floatBar.stayOut){
@@ -21864,11 +22081,9 @@ ImgOps | https://imgops.com/#b#`;
                 this.shown=true;
                 this.addStyle();
                 this.setButton();
-                if(prefs.floatBar.position!=="hide"){
-                    this.floatBar.style.transition="";
-                    this.floatBar.style.display='block';
-                    this.floatBar.style.opacity="";
-                }
+                this.floatBar.style.transition="";
+                this.floatBar.style.display='block';
+                this.floatBar.style.opacity="";
                 clearTimeout(this.hideTimer);
                 window.removeEventListener('scroll',this._scrollHandler,true);
                 window.addEventListener('scroll',this._scrollHandler,true);
@@ -21887,12 +22102,26 @@ ImgOps | https://imgops.com/#b#`;
                     self.setPosition();
                 },100);
             },
-            open:function(e,buttonType){
+            open:async function(e,buttonType){
+                if (this.data.imgSrc.indexOf("blob:") === 0) {
+                    if (this.data.src === this.data.imgSrc) {
+                        this.data.imgSrc = await getBase64FromBlobUrl(this.data.imgSrc);
+                        this.data.src = this.data.imgSrc;
+                        this.data.srcs = [this.data.imgSrc];
+                    } else {
+                        this.data.imgSrc = await getBase64FromBlobUrl(this.data.imgSrc);
+                        this.data.srcs = [this.data.imgSrc];
+                    }
+                }
                 if (buttonType === 'download' && !this.data.xhr) {
                     downloadImg(this.data.src || this.data.imgSrc, (this.data.img.title || this.data.img.alt), prefs.saveName);
                     return;
                 } else {
-                    let additionEnable = prefs.floatBar.invertAdditionalFeature ? !e.altKey : e.altKey;
+                    let altKey = e.altKey;
+                    if (e.type != "click" && prefs.floatBar.globalkeys.invertInitShow && prefs.floatBar.globalkeys.alt) {
+                        altKey = false;
+                    }
+                    let additionEnable = prefs.floatBar.invertAdditionalFeature ? !altKey : altKey;
                     if (additionEnable) {
                         let src, feature = prefs.floatBar.additionalFeature;
                         if (buttonType == 'actual') {
@@ -21910,7 +22139,7 @@ ImgOps | https://imgops.com/#b#`;
                                     _GM_setClipboard(src);
                                     break;
                                 case "open":
-                                    _GM_openInTab(src, {active:true});
+                                    _GM_openInTab(src, {active:false});
                                     break;
                                 case "copyImg":
                                     copyData(src);
@@ -22110,7 +22339,7 @@ ImgOps | https://imgops.com/#b#`;
                 srcs, // 备用的大图地址
                 type, // 类别
                 noActual = false, //没有原图
-                imgSrc = img.currentSrc||img.dataset.lazySrc||img.src, // img 节点的 src
+                imgSrc = img.src||img.currentSrc||img.dataset.lazySrc, // img 节点的 src
                 xhr,
                 description; // 图片的注释
             var imgCStyle = unsafeWindow.getComputedStyle(img);
@@ -22201,11 +22430,6 @@ ImgOps | https://imgops.com/#b#`;
             }
 
             if(!src)return;
-
-            if(/^blob/i.test(imgSrc)){
-                imgSrc=drawTobase64(img);
-                src=imgSrc;
-            }
 
             var ret = {
                 src: src,                  // 得到的src
@@ -22354,8 +22578,18 @@ ImgOps | https://imgops.com/#b#`;
                 return newSrc;
             },
             getImage:function(img, a, p){
-                var newSrc,rule;
+                var newSrc,rule,stopXhr = false;
                 var base64Img=/^data:/i.test(img.src);
+                if(this._xhr && this._xhr.url){
+                    newSrc = this._xhr.url.call(img, a, p);
+                    if(newSrc){
+                        this.xhr = this._xhr || null;
+                        return newSrc;
+                    }else{
+                        this.xhr = null;
+                        stopXhr = true;
+                    }
+                }
                 for(var i in this.rules){
                     rule=this.rules[i];
                     if((!rule.url || !rule.getImage) && base64Img)continue;
@@ -22363,7 +22597,7 @@ ImgOps | https://imgops.com/#b#`;
                     if(rule.exclude && rule.exclude.test(img.src))continue;
                     if(rule.getImage){
                         newSrc = rule.getImage.call(img, a, p, rule);
-                        this.xhr = (newSrc && !rule.stopXhr) ? (this._xhr || null) : null;
+                        this.xhr = (!stopXhr && newSrc && !rule.stopXhr) ? (this._xhr || null) : null;
                     }else newSrc = null;
                     if(!newSrc){
                         if(rule.r){
@@ -22624,12 +22858,6 @@ ImgOps | https://imgops.com/#b#`;
         function checkPreview(e){
             let selStr;
             try {
-                if (document.activeElement &&
-                    (document.activeElement.nodeName == 'INPUT' ||
-                     document.activeElement.nodeName == 'TEXTAREA' ||
-                     document.activeElement.contentEditable == 'true')) {
-                    return false;
-                }
                 selStr=document.getSelection().toString();
             }catch(e){}
             if (selStr) return false;
@@ -22723,7 +22951,7 @@ ImgOps | https://imgops.com/#b#`;
                 let nodeStyle = unsafeWindow.getComputedStyle(node);
                 let bg = node && nodeStyle.backgroundRepeatX != "repeat" && nodeStyle.backgroundRepeatY != "repeat" && nodeStyle.backgroundImage;
                 if (!bg || bg == "none") return false;
-                return bg.length > 100 || (node.clientWidth > prefs.floatBar.minSizeLimit.w && node.clientHeight > prefs.floatBar.minSizeLimit.h && /^\s*url\(\s*['"]?\s*[^ad\s'"]/.test(bg));
+                return bg.length > 200 || (node.clientWidth > prefs.floatBar.minSizeLimit.w && node.clientHeight > prefs.floatBar.minSizeLimit.h && /^\s*url\(\s*['"]?\s*[^ad\s'"]/.test(bg));
             };
             if (target.nodeName.toUpperCase() != 'IMG' && matchedRule.getExtSrc) {
                 let nsrc;
@@ -22782,7 +23010,7 @@ ImgOps | https://imgops.com/#b#`;
                         if (broEle == target) broEle = null;
                     }
                     if (prefs.floatBar.listenBg && hasBg(target)) {
-                        targetBg = unsafeWindow.getComputedStyle(target).backgroundImage.replace(bgReg, "$1");
+                        targetBg = unsafeWindow.getComputedStyle(target).backgroundImage.replace(bgReg, "$1").replace(/\\"/g, '"');
                         let src = targetBg, nsrc = src, noActual = true, type = "scale";
                         result = {
                             src: nsrc,
@@ -22796,7 +23024,7 @@ ImgOps | https://imgops.com/#b#`;
                     } else if (target.children.length == 1 && target.children[0].nodeName == "IMG") {
                         target = target.children[0];
                     } else if (prefs.floatBar.listenBg && broEle && hasBg(broEle)) {
-                        targetBg = unsafeWindow.getComputedStyle(broEle).backgroundImage.replace(bgReg, "$1");
+                        targetBg = unsafeWindow.getComputedStyle(broEle).backgroundImage.replace(bgReg, "$1").replace(/\\"/g, '"');
                         let src = targetBg, nsrc = src, noActual = true, type = "scale";
                         result = {
                             src: nsrc,
@@ -22816,7 +23044,7 @@ ImgOps | https://imgops.com/#b#`;
                             target = target.parentNode;
                         } else if (prefs.floatBar.listenBg && hasBg(target.parentNode)) {
                             target = target.parentNode;
-                            targetBg = unsafeWindow.getComputedStyle(target).backgroundImage.replace(bgReg, "$1");
+                            targetBg = unsafeWindow.getComputedStyle(target).backgroundImage.replace(bgReg, "$1").replace(/\\"/g, '"');
                             let src = targetBg, nsrc = src, noActual = true, type = "scale";
                             result = {
                                 src: nsrc,
@@ -22859,16 +23087,39 @@ ImgOps | https://imgops.com/#b#`;
                         }
                     }*/
                     }
-                    if (!result && document.elementsFromPoint) {
+                    if (!result) {
+                        let checkEle = target;
+                        while(checkEle && checkEle.children.length === 1) {
+                            checkEle = checkEle.children[0];
+                            if (checkEle.nodeName === "IMG") {
+                                target = checkEle;
+                                break;
+                            } else if (prefs.floatBar.listenBg && hasBg(checkEle)) {
+                                targetBg = unsafeWindow.getComputedStyle(checkEle).backgroundImage.replace(bgReg, "$1").replace(/\\"/g, '"');
+                                let src = targetBg, nsrc = src, noActual = true, type = "scale";
+                                result = {
+                                    src: nsrc,
+                                    type: type,
+                                    imgSrc: src,
+                                    noActual:noActual,
+                                    img: checkEle
+                                };
+                                break;
+                            }
+                        }
+                    }
+                    if (!result && document.elementsFromPoint && target.nodeName.toUpperCase() != 'A') {
                         let elements = document.elementsFromPoint(clientX, clientY);
-                        for (let i = 0; i < elements.length; i++) {
+                        let checkLen = Math.min(elements.length, 5);
+                        for (let i = 0; i < checkLen; i++) {
                             let ele = elements[i];
+                            if (!ele) continue;
                             if (/img/i.test(ele.nodeName)) {
                                 target = ele;
                                 break;
                             } else if (prefs.floatBar.listenBg && hasBg(ele)) {
                                 target = ele;
-                                targetBg = unsafeWindow.getComputedStyle(target).backgroundImage.replace(bgReg, "$1");
+                                targetBg = unsafeWindow.getComputedStyle(target).backgroundImage.replace(bgReg, "$1").replace(/\\"/g, '"');
                                 let src = targetBg, nsrc = src, noActual = true, type = "scale";
                                 result = {
                                     src: nsrc,
@@ -22946,6 +23197,20 @@ ImgOps | https://imgops.com/#b#`;
             }
             var checkUniqueImgWin = function() {
                 if (canPreview) {
+                    if (result.type != "link" && result.src == result.imgSrc) {
+                        if (!result.imgAS && !result.imgCS) {
+                            let sizeInfo = {
+                                w: result.img.offsetWidth || result.img.scrollWidth,
+                                h: result.img.offsetHeight || result.img.scrollHeight
+                            }
+                            result.imgAS = sizeInfo;
+                            result.imgCS = sizeInfo;
+                        }
+                        if (result.imgAS.w <= result.imgCS.w && result.imgAS.h <= result.imgCS.h) {
+                            var wSize = getWindowSize();
+                            if (result.imgAS.w <= wSize.w && result.imgAS.h <= wSize.h) return false;
+                        }
+                    }
                     uniqueImgWinInitX = clientX;
                     uniqueImgWinInitY = clientY;
                     if (removeUniqueWinTimer) clearTimeout(removeUniqueWinTimer);
@@ -22960,6 +23225,9 @@ ImgOps | https://imgops.com/#b#`;
                 } else {
                     if (uniqueImgWin && uniqueImgWin.imgWindow && !uniqueImgWin.removed) {
                         uniqueImgWin.imgWindow.style.pointerEvents = "auto";
+                        uniqueImgWin.imgWindow.classList.remove("pv-pic-window-transition-all");
+                        uniqueImgWin.previewed = true;
+                        uniqueImgWin = null;
                     }
                     return false;
                 }
@@ -22973,9 +23241,13 @@ ImgOps | https://imgops.com/#b#`;
                     target = null;
                 }
                 if (target) {
+                    let sizeInfo = {
+                        w: target.offsetWidth || target.scrollWidth,
+                        h: target.offsetHeight || target.scrollHeight
+                    }
                     result = {
                         src: target.href,
-                        type: "",
+                        type: "link",
                         imgSrc: target.href,
                         noActual:true,
                         img: target
@@ -22985,29 +23257,30 @@ ImgOps | https://imgops.com/#b#`;
                 return;
             }
 
+            let sizeHide = false;
             if (!result) {
                 pretreatment(target)
                 result = findPic(target);
                 if (!result) return;
                 if (prefs.floatBar.showWithRules && result.type == "rule") {
-                } else if (!(result.imgAS.w==result.imgCS.w && result.imgAS.h == result.imgCS.h)) {//如果不是两者完全相等,那么被缩放了.
+                } else if (!(result.imgAS.w == result.imgCS.w && result.imgAS.h == result.imgCS.h)) {//如果不是两者完全相等,那么被缩放了.
                     if (prefs.floatBar.sizeLimitOr) {
                         if (result.imgCS.h <= prefs.floatBar.minSizeLimit.h && result.imgCS.w <= prefs.floatBar.minSizeLimit.w) {//最小限定判断.
-                            return;
+                            sizeHide = true;
                         }
                     }else{
                         if (result.imgCS.h <= prefs.floatBar.minSizeLimit.h || result.imgCS.w <= prefs.floatBar.minSizeLimit.w) {//最小限定判断.
-                            return;
+                            sizeHide = true;
                         }
                     }
                 } else {
                     if (prefs.floatBar.sizeLimitOr) {
                         if (result.imgCS.w <= prefs.floatBar.forceShow.size.w && result.imgCS.h <= prefs.floatBar.forceShow.size.h) {
-                            return;
+                            sizeHide = true;
                         }
                     } else {
                         if (result.imgCS.w <= prefs.floatBar.forceShow.size.w || result.imgCS.h <= prefs.floatBar.forceShow.size.h) {
-                            return;
+                            sizeHide = true;
                         }
                     }
                 }
@@ -23034,20 +23307,14 @@ ImgOps | https://imgops.com/#b#`;
                     canclePreCTO = clickToOpen(result);
                 }
 
-                if (!checkUniqueImgWin()) {
-                    let canShow = floatBar.start(result);
-                    if (canShow) {
-                        var keyHide = prefs.floatBar.position == "hide" ? !altKey : altKey;
-                        if (keyHide) {
-                            floatBar.floatBar.style.opacity = 0;
-                            floatBar.floatBar.style.display = "none";
-                        } else {
-                            if (floatBar.floatBar.style.opacity == 0) {
-                                floatBar.floatBar.style.opacity = "";
-                            }
-                            floatBar.floatBar.style.display = "initial";
-                        }
+                let hide = sizeHide || (prefs.floatBar.position == "hide" ? !altKey : altKey);
+                result.hide = hide;
+                let canShow = floatBar.start(result);
+                if (!checkUniqueImgWin() && canShow) {
+                    if (floatBar.floatBar.style.opacity == 0) {
+                        floatBar.floatBar.style.opacity = "";
                     }
+                    floatBar.floatBar.style.display = "initial";
                 }
             }
         }
@@ -23184,7 +23451,7 @@ ImgOps | https://imgops.com/#b#`;
         }
 
         function isKeyDownEffectiveTarget(target) {
-            var localName = target.localName;
+            var localName = (target.shadowRoot ? (target.shadowRoot.activeElement || target) : target).localName;
 
             // 确保光标不是定位在文字输入框或选择框
             if (localName == 'textarea' || localName == 'input' || localName == 'select'){
@@ -23204,25 +23471,56 @@ ImgOps | https://imgops.com/#b#`;
             return true;
         }
 
-        function openGallery(){
+        async function openGallery(){
             if(!gallery){
                 gallery=new GalleryC();
                 gallery.data=[];
             }
-            var allData=gallery.getAllValidImgs();
+            var allData=await gallery.getAllValidImgs();
             if(allData.length<1)return;
             gallery.data=allData;
             gallery.load(gallery.data);
             return gallery;
         }
 
+        function getActiveElement(root) {
+            const activeEl = root.activeElement;
+            if (!activeEl) {
+                return null;
+            }
+            if (activeEl.shadowRoot) {
+                return getActiveElement(activeEl.shadowRoot);
+            } else {
+                return activeEl;
+            }
+        }
+
+        function inputActive(doc) {
+            let activeEl = getActiveElement(doc);
+            if (activeEl &&
+                ((/INPUT|TEXTAREA/i.test(activeEl.nodeName) &&
+                  activeEl.getAttribute("aria-readonly") != "true"
+                 ) ||
+                 activeEl.contentEditable == 'true'
+                )
+               ) {
+                return true;
+            } else {
+                while (activeEl && activeEl.nodeName) {
+                    if (activeEl.contentEditable == 'true') return true;
+                    if (activeEl.nodeName.toUpperCase() == 'BODY') {
+                        break;
+                    }
+                    activeEl = activeEl.parentNode;
+                }
+            }
+            return false;
+        }
+
         function keydown(event) {
             if (ImgWindowC.showing) return;
-            if (document.activeElement &&
-                (document.activeElement.nodeName == 'INPUT' ||
-                 document.activeElement.nodeName == 'INPUT' ||
-                 document.activeElement.nodeName == 'TEXTAREA' ||
-                 document.activeElement.contentEditable == 'true')) {
+            if (gallery && gallery.shown) return;
+            if (inputActive(document)) {
                 return;
             }
             var key = event.key;
@@ -23246,9 +23544,9 @@ ImgOps | https://imgops.com/#b#`;
                 return false;
             }
             if (key == 'c' && event && (event.ctrlKey || event.metaKey)) return false;
-            if (floatBar && floatBar.shown && isKeyDownEffectiveTarget(event.target)) {
+            if (floatBar && isKeyDownEffectiveTarget(event.target)) {
                 Object.keys(prefs.floatBar.keys).some(function(action) {
-                    if (action == 'enable') return;
+                    if (action == 'enable' || action == 'search') return;
                     if (key == prefs.floatBar.keys[action]) {
                         floatBar.open(event, action);
                         event.stopPropagation();
@@ -23556,7 +23854,7 @@ ImgOps | https://imgops.com/#b#`;
                     "default": false,
                 },
                 'floatBar.globalkeys.command': {
-                    after: "COMMAND",
+                    after: "META",
                     type: 'checkbox',
                     className: 'sep-x',
                     "default": false,
@@ -23646,6 +23944,37 @@ ImgOps | https://imgops.com/#b#`;
                     label: i18n("magnifierWheelZoomEnabled"),
                     type: 'checkbox',
                     "default": prefs.magnifier.wheelZoom.enabled,
+                },
+                'magnifier.wheelZoom.scaleImage': {
+                    label: i18n("magnifierScaleImage"),
+                    type: 'checkbox',
+                    "default": typeof prefs.magnifier.wheelZoom.scaleImage !== false,
+                },
+                'magnifier.wheelZoom.ctrl': {
+                    label: '',
+                    type: 'checkbox',
+                    after: "CTRL +",
+                    "default": false,
+                    line: 'start'
+                },
+                'magnifier.wheelZoom.alt': {
+                    after: "ALT +",
+                    type: 'checkbox',
+                    className: 'sep-x',
+                    "default": false,
+                },
+                'magnifier.wheelZoom.shift': {
+                    after: "SHIFT +",
+                    type: 'checkbox',
+                    className: 'sep-x',
+                    "default": false,
+                },
+                'magnifier.wheelZoom.meta': {
+                    after: "META",
+                    type: 'checkbox',
+                    className: 'sep-x',
+                    "default": false,
+                    line: 'end',
                 },
                 'magnifier.wheelZoom.range': {
                     label: i18n("magnifierWheelZoomRange"),
@@ -24006,9 +24335,21 @@ ImgOps | https://imgops.com/#b#`;
                                     children: [
                                         {
                                             node: "a",
-                                            text: "Hoothin",
+                                            text: "@Hoothin",
                                             attr: {
                                                 "href": "mailto:rixixi@gmail.com"
+                                            }
+                                        },
+                                        {
+                                            node: "span",
+                                            text: " Join our "
+                                        },
+                                        {
+                                            node: "a",
+                                            text: "Discord",
+                                            attr: {
+                                                href: "https://discord.com/invite/keqypXC6wD",
+                                                target: "_blank"
                                             }
                                         }
                                     ]
@@ -24040,7 +24381,8 @@ ImgOps | https://imgops.com/#b#`;
                                             text: "Ko-fi",
                                             attr: {
                                                 href: "https://ko-fi.com/hoothin",
-                                                style: "margin-right: 10px;"
+                                                style: "margin-right: 10px;",
+                                                target: "_blank"
                                             }
                                         },
                                         {
@@ -24055,7 +24397,8 @@ ImgOps | https://imgops.com/#b#`;
                                             node: "a",
                                             text: "爱发电",
                                             attr: {
-                                                href: "https://afdian.net/@hoothin"
+                                                href: "https://afdian.net/@hoothin",
+                                                target: "_blank"
                                             }
                                         }
                                     ]
@@ -24090,7 +24433,7 @@ ImgOps | https://imgops.com/#b#`;
 
         loadPrefs();
 
-        var hideIcon=storage.getItem("hideIcon" + location.hostname) || false;
+        var hideIcon=storage.getListItem("hideIcon", location.hostname) || false;
         var hideIconStyle=document.createElement('style');
         hideIconStyle.textContent=`#pv-float-bar-container{display:none!important}`;
         if(hideIcon){
@@ -24100,7 +24443,7 @@ ImgOps | https://imgops.com/#b#`;
         _GM_registerMenuCommand(i18n("openGallery"), openGallery);
         _GM_registerMenuCommand(i18n("hideIcon") + (hideIcon ? "☑️" : ""), ()=>{
             hideIcon=!hideIcon;
-            storage.setItem("hideIcon" + location.hostname, hideIcon);
+            storage.setListItem("hideIcon", location.hostname, hideIcon);
             if(hideIcon){
                 document.head.appendChild(hideIconStyle);
             }else{
@@ -24142,11 +24485,16 @@ ImgOps | https://imgops.com/#b#`;
             }
         }
 
-        if (location.hostname == "hoothin.github.io" && location.pathname == "/UserScripts/Picviewer%20CE+/gallery.html") {
+        var configStyle = document.createElement("style");
+        configStyle.textContent = "#pv-prefs { display: initial; }";
+        configStyle.type = 'text/css';
+        if (location.hostname == "hoothin.github.io" && location.pathname == "/UserScripts/Picviewer%20CE+/") {
+            openPrefs();
+        } else if (location.hostname == "hoothin.github.io" && location.pathname == "/UserScripts/Picviewer%20CE+/gallery.html") {
             let gallery = new GalleryC();
             gallery.data = [];
             gallery.lockGallery = true;
-            var allData = gallery.getAllValidImgs();
+            var allData = await gallery.getAllValidImgs();
             gallery.data = allData;
             gallery.load(gallery.data);
             let searchParams = new URLSearchParams(location.search);
@@ -24165,8 +24513,8 @@ ImgOps | https://imgops.com/#b#`;
                 let autoViewMore=siteReg[0]=="@";
                 if(autoViewMore)siteReg=siteReg.substr(1);
                 if(new RegExp(siteReg).test(_URL)){
-                    setTimeout(function(){
-                        let gallery = openGallery();
+                    setTimeout(async function(){
+                        let gallery = await openGallery();
                         if (gallery && autoViewMore) gallery.maximizeSidebar();
                     },2000);
                     break;
@@ -24177,9 +24525,6 @@ ImgOps | https://imgops.com/#b#`;
         // 注册按键
         document.addEventListener('keydown', keydown, true);
 
-        var configStyle = document.createElement("style");
-        configStyle.textContent = "#pv-prefs { display: initial; }";
-        configStyle.type = 'text/css';
         function openPrefs() {
             let fieldsSearchData = GM_config.fields["gallery.searchData"];
             if (fieldsSearchData && fieldsSearchData.value) {
@@ -24193,7 +24538,11 @@ ImgOps | https://imgops.com/#b#`;
             GM_config.open();
 
             setTimeout(()=>{
-                if(GM_config.frame && GM_config.frame.style && GM_config.frame.style.display=="none"){
+                if (GM_config.frame && GM_config.frame.contentDocument.body.innerHTML === "") {
+                    _GM_openInTab("https://hoothin.github.io/UserScripts/Picviewer%20CE+/", {active:true});
+                    return;
+                }
+                if (GM_config.frame && GM_config.frame.style && GM_config.frame.style.display == "none") {
                     GM_config.frame.src="";
                 }
                 initKeyInputs();
@@ -24225,6 +24574,12 @@ ImgOps | https://imgops.com/#b#`;
                     }
                 }
             });
+            if (localStorage) {
+                if (!storage.getItem('inited')) {
+                    localStorage.setItem('picviewerCE.config.curTab', 4);
+                    storage.setItem('inited', true);
+                }
+            }
 
             debug = prefs.debug ? console.debug.bind(console) : function() {};
         }
@@ -24290,35 +24645,62 @@ ImgOps | https://imgops.com/#b#`;
             };
         })(),
         setItem:function(key,value){
-            if(this.operaUJSStorage){
-                this.operaUJSStorage.setItem(key,value);
-            }else if(this.mxAppStorage){
-                this.mxAppStorage.setConfig(key,value);
-            }else if(this.supportGM){
-                GM_setValue(key,value);
-            }else if(window.localStorage){
-                window.localStorage.setItem(key,value);
-            };
+            if (this.supportGM) {
+                GM_setValue(key, value);
+                if (value === "" && typeof GM_deleteValue != 'undefined') {
+                    GM_deleteValue(key);
+                }
+            } else if (this.operaUJSStorage) {
+                this.operaUJSStorage.setItem(key, value);
+            } else if (this.mxAppStorage) {
+                this.mxAppStorage.setConfig(key, value);
+            } else if (window.localStorage) {
+                window.localStorage.setItem(key, value);
+            }
         },
         getItem:function(key){
             var value;
-            if(this.operaUJSStorage){
+            if(this.supportGM){
+                value=GM_getValue(key);
+            }else if(this.operaUJSStorage){
                 value=this.operaUJSStorage.getItem(key);
             }else if(this.mxAppStorage){
                 value=this.mxAppStorage.getConfig(key);
-            }else if(this.supportGM){
-                value=GM_getValue(key);
             }else if(window.localStorage){
                 value=window.localStorage.getItem(key);
             };
             return value;
         },
+        getListItem: function(list, key) {
+            var value;
+            var listData = this.getItem(list);
+            if (listData) {
+                for(var i = 0; i < listData.length; i++) {
+                    var data = listData[i];
+                    if (data.k == key) {
+                        value = data.v;
+                        break;
+                    }
+                }
+            }
+            return value;
+        },
+        setListItem: function(list, key, value) {
+            var listData = this.getItem(list);
+            if (!listData) listData = [];
+            listData = listData.filter(data => data && data.k != key);
+            if (value) {
+                listData.unshift({k: key, v: value});
+                if (listData.length > 50) listData.pop();
+            }
+            this.setItem(list, listData);
+        }
     };
 
     function getUrl(url, callback, onError){
         _GM_xmlhttpRequest({
             method: 'GET',
-            url: url,
+            url: url.trim(),
             onload: callback,
             onerror: onError
         });

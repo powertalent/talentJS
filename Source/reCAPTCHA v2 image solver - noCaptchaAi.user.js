@@ -21,6 +21,8 @@
 // @grant        GM_getValue
 // @grant        GM_info
 // @license      MIT
+// @downloadURL https://update.greasyfork.org/scripts/464982/reCAPTCHA%20v2%20image%20solver%20-%20noCaptchaAi.user.js
+// @updateURL https://update.greasyfork.org/scripts/464982/reCAPTCHA%20v2%20image%20solver%20-%20noCaptchaAi.meta.js
 // ==/UserScript==
 (async () => {
     const softid = "recapUser_v" + GM_info.script.version;
